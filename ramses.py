@@ -42,6 +42,7 @@ class Ramses():
         self.jobPath = jobdir
         self.get_units()
         self.ds1 = None
+        self.tRelax = self.get_trelax()
 
     def get_info_path(self, out):
         return "{0}/output_{1:05d}/info_{1:05d}.txt".format(

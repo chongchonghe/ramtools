@@ -1,5 +1,7 @@
 # -*- mode: gitignore; -*-
 
+test/plots
+
 # Emacs
 
 *~
