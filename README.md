@@ -17,4 +17,8 @@ your_script.py
 
 In your script, import these tools like a Python module. For instance, `from ramtools import ramses` or `from ramtools.plotutils import den_setup`. See examples in test/test.py
 
+Run the test by modifying the path and output id in test.py and do
 
+```
+python ramtools/test/test.py
+```
