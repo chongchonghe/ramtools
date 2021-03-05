@@ -19,11 +19,16 @@ import numpy as np
 from matplotlib.pyplot import cm
 from glob import glob
 import f90nml
+import re
 import yt
 from .yt_field_descrs import FIELDS
-from .utilities import my_yt_load
+from .utilities import my_yt_load, get_sink_info_from_movie1, get_times_from_movie1
+from . import utilities as util
+
 from . import units
 # from .utils import units, center, utilities, tools
+
+RAM_DIR = ".."
 
 class NoSinkParticle(Exception):
     """exception: no sink particle found in an output or a .csv file."""
@@ -33,13 +38,19 @@ class NoSinkParticle(Exception):
 
 class Ramses():
 
-    def __init__(self, jobdir):
+    def __init__(self, jobdir, is_use_jobid=False):
         """
         Args:
             jobdir (str): relative/absolute path to job directory
         """
 
-        self.jobPath = jobdir
+        assert not bool(re.compile(r'[~0-9]').search(jobdir[0])), \
+            "jobdir should be the directory of the job, not a jobid"
+        if not is_use_jobid:
+            self.jobPath = jobdir
+        else:
+            jobid = jobdir
+            self.jobPath = f"{RAM_DIR}/Job{jobid}"
         self.get_units()
         self.ds1 = None
         self.tRelax = self.get_trelax()
@@ -76,6 +87,7 @@ class Ramses():
         self.kin_ene_in_cgs = self.unit_m * self.unit_l_code**2 / self.unit_t**2
         self.pot_ene_in_cgs = units.G * self.unit_m**2 / self.unit_l_code
         # self.n_colden_H = np.double(self.unitDen2Hcc * self.unit_l)
+        return
 
     def get_sink_path(self, outputID):
         sinkFile = "{0}/output_{1:05d}/sink_{1:05d}.csv".format(
@@ -127,6 +139,26 @@ class Ramses():
 
         return self.get_sink_particles(outputID)[:, 1:4]
 
+    def get_sink_masses(self, outputID=None):
+        """ Get sink masses in M_sun of one output (not shifted)
+        Replacing get_sink_mass
+
+        Return
+        ------
+            sink mass: 1-D Array
+        Exceptions
+        ----------
+            NoSinkParticle
+            FileNotFoundError
+
+        """
+
+        # particle = self.get_sink_particles(outputID)
+        # sink_mass = particle[:, 0]
+        # sink_mass *= self.unit_m / units.Msun
+        # return sink_mass
+        return self.get_sink_particles(outputID)[:, 0] * self.unit_m / units.Msun
+
     def get_trelax(self):
         nml = f90nml.read(self.jobPath + "/run.sink.nml")
         try:
@@ -135,3 +167,65 @@ class Ramses():
         except KeyError:
             t_relax = 0
         return t_relax
+
+    def get_sink_info_from_movie1(self, sinkid):
+        """ Return a list of time and a list of sink masses
+
+        Args
+            sinkid: interger, starting from 0
+
+        Return
+        ------
+        Return a dictionary containing the following keys 'out', 't', 'm', 'x',
+        'y', 'z', 'vx', 'vy', 'vz'. All in code units.
+
+        """
+
+        return get_sink_info_from_movie1(f"{self.jobPath}/movie1", sinkid)
+
+    def get_times_from_movie1(self):
+        return get_times_from_movie1(f"{self.jobPath}/movie1")
+
+    def get_time(self, outputID, readinfo=False):
+        """ Get the time in Myr (not substracting t_relax) of data_id.
+        """
+
+        fname = "{0}/output_{1:05d}/info_{1:05d}.txt".format(
+            self.jobPath, outputID)
+        if not os.path.isfile(fname):
+            return -1
+        # t = yt.load(fname)['time']
+        t = util.read_quant_from_ramses_info(fname, 'time')
+        return t * self.unit_t / units.Myr
+
+    def get_first_output(self):
+        for i in range(1, 100):
+            fname = "{0}/output_{1:05d}/info_{1:05d}.txt".format(
+                self.jobPath, i)
+            if os.path.isfile(fname):
+                return i
+        return 0
+
+    def get_all_outputs(self):
+        outs = []
+        for i in range(1, 1000):
+            fname = "{0}/output_{1:05d}/info_{1:05d}.txt".format(
+                self.jobPath, i)
+            if os.path.isfile(fname):
+                outs.append(i)
+        return outs
+
+    def get_last_output_backward(self):
+        for i in range(99, 0, -1):
+            fname = "{0}/output_{1:05d}/info_{1:05d}.txt".format(
+                self.jobPath, i)
+            if os.path.isfile(fname):
+                return i
+        return 0
+
+
+class RamsesJob(Ramses):
+
+    def __init__(self, jobid):
+        return
+

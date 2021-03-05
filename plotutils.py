@@ -52,9 +52,8 @@ def quick_plot_prj(ds, sinks, field='density', **kwargs):
         den_setup(p)
     # set the unit of the axes and of the sink positions to 'pc' 
     p.set_axes_unit('pc')
-    sinks = (sinks * ds.length_unit / ds['boxlen']).to('pc').value
+    sinks = sinks / ds['boxlen']
     for pos in sinks:
         p.annotate_marker(pos, '.', coord_system='data',
                           plot_args={'color': 'cyan', 's': 40})
     return p
-
