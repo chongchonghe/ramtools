@@ -35,7 +35,6 @@ class NoSinkParticle(Exception):
 
     pass
 
-
 class Ramses():
 
     def __init__(self, jobdir, is_use_jobid=False):
@@ -223,6 +222,60 @@ class Ramses():
                 return i
         return 0
 
+    def find_formation_pos_from_movie(self, sinkid, msg='off'):
+        """Find the formation location of the sink particles with given sinkid.
+        This is done by finding the sink_*.txt file where the sink first form
+        and stops accreting.
+
+        Args:
+            sinkid: integer (starting from 1)
+
+        Return:
+            pos: (n by 3 array) position of sink particle at formation
+
+        """
+
+        # params
+        # thresh in fractional growth
+        # thresh = 0.00001
+        thresh = np.inf         # no thresh
+
+        mpath = "{}/movie1".format(self.jobPath)
+        # if not os.path.isfile("{}/sink_00001.txt".format(mpath)):
+        #     print("Movies files not found. Quitting")
+        #     return
+        i = 0
+        count = 0
+        #par = -1. * np.ones(14) * np.inf
+        m0 = -1.0
+        for i in range(10000):
+            fn = "{}/sink_{:05d}.txt".format(mpath, i)
+            if not os.path.isfile(fn):
+                continue
+            with open(fn, 'r') as f:
+                if not os.fstat(f.fileno()).st_size:
+                    continue
+                num_lines = len(f.readlines())
+                #num_lines = 0
+                #for line in f:
+                #    num_lines += 1
+                if num_lines >= sinkid:
+                    pars_new = np.loadtxt(fn, delimiter=',')
+                    if num_lines >= 2:
+                        parnew = pars_new[sinkid-1, :]
+                    else:
+                        parnew = pars_new
+                    mnew = parnew[1] * self.unit_m / units.Msun
+                    if mnew - m0 < thresh:
+                        # good, particle not growing, print the previous one
+                        #assert par is not None
+                        #par[1] *= self.unit_m / units.Msun
+                        if msg is True or msg == 'on':
+                            print("Found a non-growing sink at id {}, after {}"\
+                                " steps after formation".format(sinkid, count-1))
+                        return parnew[2:5]
+                    #par = parnew
+                    m0 = mnew
 
 class RamsesJob(Ramses):
 
