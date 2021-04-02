@@ -1,17 +1,18 @@
 import yt
-from ramtools import ramses
-from ramtools.plotutils import quick_plot_prj, den_setup
+from ramses.ramtools import ramses
+from ramses.ramtools.plotutils import quick_plot_prj, den_setup
 
 # make slice plots of your own
-
-jobdir = "../Job2.01.sp.zf5.3"
+ramses.RAM_DIR = "../2017-RAMSES"
+jobid = "2.01.sp.zf5.3"
 out = 40
-job = ramses.Ramses(jobdir)
+job = ramses.Ramses(jobid, True)
 sinks = job.get_sink_positions(out)
 ds = job.load_ds(out)
 s = yt.SlicePlot(ds, 'x', 'density')
 den_setup(s, zlim=[1e0, 1e5])   # set density limit in cm^-3
-s.save("ramtools/test/plots/test-slc-plot.pdf")
+s.save("ramses/ramtools/test/plots/test-slc-plot.pdf")
+print("ramses/ramtools/test/plots/test-slc-plot.pdf saved")
 
 
 # make projection plots using quick_plot_prj(). Might be slow...
