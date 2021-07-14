@@ -639,7 +639,7 @@ class Sink(Ramses):
         return
 
     def MassFunc(self, ax=None, bins='auto', outputID=None, tff=None,
-                 is_x_log_number=False, isFill=False, label=None, plotstyle={}):
+                 is_x_log_number=False, is_plot_kroupa=False, isFill=False, label=None, plotstyle={}):
         """
         Plot the mass function
         kwargs could be: refPoint = [x_start, x_end], bin_max, bin_min,
@@ -700,6 +700,13 @@ class Sink(Ramses):
         ax.set_yscale('log')
         ax.set_xlim([1e-1, 1e3])
         ax.set_ylim([6, 2e3])
+        
+        if is_plot_kroupa:
+            self.overplot_kroupa(ax, self.get_sink_masses(outputID).sum(), m_min=0.08,
+                                 m_max=mass.max(),
+                                 # m_max=1000,
+                                 color='b')
+
 
         ##### Labels #####
         ax.set_xlabel(r"$M$ (M$_{\odot}$)")
