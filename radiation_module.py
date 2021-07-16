@@ -34,6 +34,15 @@ def QVaccaRaw(m):
     # return QVacca in s^-1
     return QVacca(m) * center.unit_lum
 
+def QVacca_sp(m):
+    """ Modified Vacca, single power law """
+    stf_k=9.634642584812752e48
+    stf_m0=2.728098824280431e1
+    stf_a=6.840015602892084e0
+    stf_b=4.353614230584390e0
+    stf_c=1.142166657042991e0
+    return stf_k * (m / stf_m0)**(stf_a - stf_b * stf_c)
+
 def scluster_fit(mtot):
     return 4.6e46 * mtot**1.0746
 
@@ -49,11 +58,15 @@ def rescale_ratio_do_not_use(mass):
     wcluster = np.sum(QVaccaRaw(0.3 * mass))
     return scluster / wcluster
 
-def luminosity(masses, recipe, info_path):
+def luminosity(masses, recipe, info_path, masstot=None):
     """
     Args
         masses (list): list of sink mass in Msun
         recipe (str): one of ["frig_he", "sp"]
+        info_path (str): of the of info_000##.txt file, which is used to
+            get unit_d and unit_l
+        masstot (float): total mass. When masstot = None (default), this
+            is np.sum(masses)
     """
 
     assert recipe in["frig_he", "sp"]
@@ -64,12 +77,14 @@ def luminosity(masses, recipe, info_path):
         print(f"scale_msun = {scale_msun}")
         sraw = QVaccaRaw(0.3 * masses / scale_msun)  # wrong scale/units use in ramses_frig or ramses_frig_he
         wcluster = sraw.sum()  # wrong scale used in _frig
-        scluster = scluster_fit(masses.sum())
+        if masstot is None:
+            masstot = masses.sum()
+        scluster = scluster_fit(masstot)
         raw_scale = scluster / wcluster
         scales = raw_scale if raw_scale < 1.0 else 1.0
         return sraw * scales
     if recipe == "sp":
-        return QVaccaRaw(0.4 * masses)
+        return QVacca_sp(0.4 * masses)
 
 def poly(logm, a):
     ret = 0.0

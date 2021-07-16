@@ -1,6 +1,7 @@
 # -*- mode: gitignore; -*-
 
 test/plots
+*.swp
 
 # Emacs
 
