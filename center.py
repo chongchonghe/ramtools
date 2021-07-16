@@ -23,3 +23,4 @@ JOBNAMES = {
     '1.2.5': 'try',
 }
 
+unit_lum = 1e44 # 1e44 ergs/s

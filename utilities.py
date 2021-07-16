@@ -3,6 +3,20 @@ import numpy as np
 import yt
 from .yt_field_descrs import FIELDS
 
+def mass_to_temp(mass):
+    """ input: mass (M_sun); output: T (K) """
+
+    radius = 1.06 * mass**0.945 if mass < 1.66 else 1.33 * mass**0.555
+    if mass > 20.0:
+        lumino = 81 * mass**2.14
+    elif mass > 2.0:
+        lumino = 1.78 * mass**3.5
+    else:
+        lumino = 0.75 * mass**4.8
+    return 5777 * (lumino / radius**2)**(0.25)
+
+TLIM = [mass_to_temp(10 ** -1), mass_to_temp(10 ** 3)]
+
 def my_yt_load(job_path, out):
     """Quick load a job to yt with the correct FIELDS
 
@@ -49,7 +63,7 @@ def get_times_from_movie1(movie_dir):
         data[i] = t
     return data
 
-    
+
 def get_sink_info_from_movie1(movie_dir, sinkid):
     """ Return a list of time and a list of sink masses
 
