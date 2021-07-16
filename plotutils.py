@@ -35,7 +35,7 @@ def T_setup(p, zlim=None, time_offset=None):
     if zlim is not None:
         p.set_zlim('temperature', zlim[0], zlim[1])
     p.set_figure_size(6)
-    p.set_cmap('density', 'gist_heat')
+    p.set_cmap('temperature', 'gist_heat')
     p.annotate_timestamp(time_format='{time:.3f} {units}',
                          time_offset=time_offset)
 
