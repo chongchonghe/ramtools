@@ -24,18 +24,21 @@ from . import ramses
 from . import radiation_module as rm
 from . import units
 
-def lumhist(jobdir, recipe, plotdir, xlim=[38, None], ylim=None):
+def lumhist(jobdir, recipe, plotdir, xlim=[38, None], ylim=None, bins = 'auto'):
     """
     Args:
-        jobidr (str): path to job directory
+        jobidr (list of str): paths to job directories
         recipe (str): one of "frig_he", "sp"
         plotdir (str): directory to save plots
         xlim: xlim of the histogram
         ylim: ylim
     """
-
-    r = ramses.Ramses(jobdir=jobdir)
+    print(jobdir, type(jobdir))
+    if isinstance(jobdir, str):
+        jobdir = [jobdir] #Turns a single directory string into a single item list
+    r = ramses.Ramses(jobdir=jobdir[0])
     os.makedirs(plotdir, exist_ok=True)
+    colors = ['tab:blue', 'tab:green','tab:red','tab:purple']
 
     # make L(m) curve
     ms = np.logspace(-1, 3, 100)
@@ -52,20 +55,25 @@ def lumhist(jobdir, recipe, plotdir, xlim=[38, None], ylim=None):
     plt.legend()
     plt.savefig(plotdir + "/luminosity curve.pdf")
     plt.close()
-    return
+#    return
 
     for out in r.get_all_outputs():
-        try:
-            ms = r.get_sink_masses(out)
-        except ramses.NoSinkParticle:
-            continue
-        lum = rm.luminosity(ms, recipe, r.get_info_path(out))
-        # bins = np.logspace(40, 50, 11)
-        bins = 'auto'
-        plt.hist(np.log10(lum), bins=bins)
-        plt.xlabel("log L")
-        plt.ylabel("N")
-        plt.xlim(xlim)
-        plt.ylim(ylim)
-        plt.savefig(plotdir + f"/output_{out:05d}.pdf")
+        for i, dir in enumerate(jobdir):
+            r = ramses.Ramses(jobdir=dir)
+            try:
+                ms = r.get_sink_masses(out)
+            except ramses.NoSinkParticle:
+                continue
+            lum = rm.luminosity(ms, recipe, r.get_info_path(out))
+            # bins = np.logspace(40, 50, 11)
+    #        bins = 'auto'
+            print(bins)
+            plt.hist(np.log10(lum), bins=bins, alpha=0.5, label = f'{dir}  L_tot: {np.sum(lum):.2e}', color = colors[i])
+            plt.xlabel("log L")
+            plt.ylabel("N")
+            plt.title(f"Luminosity histogram at output {out}")
+            plt.legend()
+            plt.xlim(xlim)
+            plt.ylim(ylim)
+            plt.savefig(plotdir + f"/output_{out:05d}.pdf")
         plt.close()
