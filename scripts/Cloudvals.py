@@ -14,17 +14,17 @@ from yt.units import erg
 parser = argparse.ArgumentParser(description = 'Plot as a function of time')
 parser.add_argument('jobdir', type = str, nargs='+', help='Directory containing input data')
 parser.add_argument('--frames', type = int, nargs =2, default= [1,10], help='Range of Frames to plot. Defaults to 1-10')
-parser.add_argument('--out', type = str, nargs = 1, default='plots', help='Output location')
-parser.add_argument('--width', type = float, nargs = '?', default=6, help='Plot width')
-parser.add_argument('--center', type = float, nargs = 3, default=[0.5,0.5,0.5], help='Plot center in boxlen units')
+parser.add_argument('--out', type = str, nargs = 1, default='.', help='Output location')
 parser.add_argument('--field', type = str, nargs = 1, default = 'energy', help='Values to calculate, either "energy for energy types, or "density for physical cloud parameters"')
+parser.add_argument('--nocut', action = 'store_true', help='Do not cut on cloud')
+parser.add_argument('--coreonly', action = 'store_true', help='Do not cut on cloud')
 args = parser.parse_args()
 jobdirs = args.jobdir
 field = args.field[0]
 frames = args.frames
 out = args.out
-width = args.width
-center = args.center
+nocut = args.nocut
+coreonly = args.coreonly
 
 colors = ['tab:blue','tab:green','tab:purple','tab:red']
 
@@ -39,13 +39,19 @@ for n, jobdir in enumerate(jobdirs):
     E_therm_list = []
     E_pot_list = []
     ram = ramses.Ramses(jobdir)
-#    print(field)
+    if nocut:
+        cutlabel = '_nocut'
+    elif coreonly:
+        cutlabel = '_coreonly'
+    else:
+        cutlabel = ''
+
     if field == 'energy':
-        file = open(f"Energy_{jobdir[-10:-1]}.txt", 'a')
+        file = open(f"{out}/Energy_{jobdir[-10:-1]}{cutlabel}.txt", 'a')
         file.write(f"Time, Magnetic_Energy, Thermal_Energy, Gravitational_Potential, Turbulent_Energy\n")
         file.write(f"Myrs, ergs, ergs, ergs, ergs\n")
     elif field == 'density':
-        file = open(f"Density_{jobdir[-10:-1]}.txt", 'a')
+        file = open(f"{out}/Density_{jobdir[-10:-1]}{cutlabel}.txt", 'a')
         file.write(f"Time, Cloud_Mass, Cloud_Volume, Average_Density\n")
         file.write(f"Myrs, cm^3, g, cm^-3\n")
         
@@ -62,7 +68,12 @@ for n, jobdir in enumerate(jobdirs):
         alldat = ds.all_data()
 #        mask = reg['density'].in_units("cm**-3", equivalence="number_density", mu=1.4) > 100 #Unused Density Cut
 #        reg = alldat.cut_region(["obj['density'].in_units('cm**-3', equivalence='number_density', mu=1.4) > 100"])
-        reg = alldat.cut_region(["obj['temperature'] < 1000"])
+        if nocut:
+            reg = alldat
+        elif coreonly:
+            reg = alldat.cut_region(["(obj['temperature'] < 1000) & (obj['density'].in_units('cm**-3', equivalence='number_density', mu=1.4) > 900)"])
+        else:
+            reg = alldat.cut_region(["obj['temperature'] < 1000"])
         
         if field == 'energy':
             bx_avg = ((reg['x-Bfield-left']+reg['x-Bfield-right'])/2 * mag_unit)
@@ -77,7 +88,8 @@ for n, jobdir in enumerate(jobdirs):
             E_turb = (0.5*((vx*vx)+(vy*vy)+(vz*vz))*reg['cell_mass']).in_cgs()
     #        print(f'Vel = {np.sqrt(np.sum(E_turb)/np.sum(reg["cell_mass"]))}')
             
-            pot_unit = (ds.length_unit**2/(ds.time_unit**2)) #Unit for potential in cgs
+#            pot_unit = (ds.length_unit**2/(ds.time_unit**2)) #Unit for potential in cgs
+            pot_unit = (ds.velocity_unit)**2 #Unit for potential in cgs
             E_pot = (reg['potential'] * pot_unit * reg['cell_mass']).in_cgs()
 
             press = reg['Pressure']

@@ -116,7 +116,7 @@ class Ramses():
         with open(fp, 'r') as f:
             if not os.fstat(f.fileno()).st_size:
                 raise NoSinkParticle
-        data = np.loadtxt(fp, delimiter=',')
+        data = np.loadtxt(fp, delimiter=',', usecols = (0,1,2,3,4,5,6,7,8))
         if data.ndim == 1:
             data = np.array([data])
         return data[:, 1:8]
