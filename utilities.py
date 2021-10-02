@@ -110,3 +110,16 @@ def get_sink_info_from_movie1(movie_dir, sinkid):
         t = read_quant_from_ramses_info(fn, 'time')
         data['t'].append(t)
     return data
+
+def get_unit_B(ds):
+    """ Get the unit of B field strength
+
+    1 Gauss = sqrt(g / cm) / s and u_B = B^2 / 8 pi
+
+    Return: the unit of B in cgs units
+    """
+
+    ul = ds.length_unit / ds['boxlen']
+    um = ds.mass_unit
+    ut = ds.time_unit
+    return np.sqrt(um / ul) / ut

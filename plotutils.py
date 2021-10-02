@@ -18,10 +18,11 @@ Example
 
 import yt
 
-def den_setup(p, zlim=None, time_offset=None, mu=1.4):
-    p.set_unit('density', 'cm**-3',
-               equivalency='number_density',
-               equivalency_kwargs={'mu': mu})
+def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density'):
+    if unit == 'number_density':
+        p.set_unit('density', 'cm**-3',
+                   equivalency='number_density',
+                   equivalency_kwargs={'mu': mu})
     if zlim is not None:
         p.set_zlim('density', zlim[0], zlim[1])
     # This will change the pixel size of the figure. Be careful!

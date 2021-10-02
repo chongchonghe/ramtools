@@ -37,19 +37,29 @@ class NoSinkParticle(Exception):
 
 class Ramses():
 
-    def __init__(self, jobdir, is_use_jobid=False):
-        """
+    def __init__(self, jobdir=None, jobid=None, ram_dir=None, is_use_jobid=False):
+        """Initiate an Ramses instance for a given job. The job can be
+        specified by either (1) a jobdir, the path of the job directory, or (2)
+        a jobid with a ram_dir (default to RAM_DIR), which is equivalent to
+        setting jobdir = f"{ram_dir}/Job{jobid}".
+
         Args:
-            jobdir (str): relative/absolute path to job directory
+            jobdir (str): relative/absolute path to the job directory
+            jobid (str): jobid, prepend with 'Job' to get the job directory
+            ram_dir (str): the base directory for the RAMSES jobs
+            is_use_jobid: not being used.
         """
 
-        assert not bool(re.compile(r'[~0-9]').search(jobdir[0])), \
-            "jobdir should be the directory of the job, not a jobid"
-        if not is_use_jobid:
+        # if not is_use_jobid:
+        if jobid is None:
+            # assert not bool(re.compile(r'[~0-9]').search(jobdir[0])), \
+            assert not jobdir[0].isdigit(), \
+                "jobdir should be the directory of the job, not a jobid"
             self.jobPath = jobdir
         else:
-            jobid = jobdir
-            self.jobPath = f"{RAM_DIR}/Job{jobid}"
+            if ram_dir is None:
+                ram_dir = RAM_DIR
+            self.jobPath = f"{ram_dir}/Job{jobid}"
         self.get_units()
         self.ds1 = None
         self.tRelax = self.get_trelax()
@@ -276,6 +286,57 @@ class Ramses():
                         return parnew[2:5]
                     #par = parnew
                     m0 = mnew
+
+    def overplot_sink(self, p, out, plot_args={}):
+        """Over plot sink particles (as green cross) on top of a YT
+        slice/project plot"""
+
+        _plot_args = {'color': 'g'}
+        for i in plot_args:
+            _plot_args[i] = plot_args[i]
+        try:
+            poss = self.get_sink_positions(out) / self.boxlen
+        except NoSinkParticle or FileNotFoundError:
+            poss = []
+        for pos in poss:
+            p.annotate_marker(pos, coord_system='data', plot_args=_plot_args)
+
+    def overplot_sink_with_id(self, plot, out, center, radius, is_id=True,
+                              colors=cm.Greens, withedge=False):
+        """
+        Args:
+            plot (yt plot)
+            out (int)
+            center (tuple or list): the center of the plot in boxlen units
+            radius (double): radius in boxlen units
+        """
+
+        try:
+            sposs = self.get_sink_positions(out) / self.boxlen
+            masses = self.get_sink_masses(out)
+            indices = np.arange(len(masses))
+            _is_inside = np.max(np.abs(sposs - center), axis=1) < radius
+        except NoSinkParticle:
+            sposs = []
+            masses = []
+        lim = [1e-2, 1e2]
+        #colors = cm.Greens
+        for i in range(len(masses)):
+            if not _is_inside[i]:
+                continue
+            m, pos, indice = masses[i], sposs[i], indices[i]
+            mass_scaled = (np.log10(m) - np.log10(lim[0]))/np.log10(lim[1]/lim[0])
+            plot.annotate_marker(pos, 'o', coord_system='data',
+                                 plot_args={'color': colors(mass_scaled),
+                                            's':20, 'zorder':i+10,
+                                            'linewidths': 0.8,
+                                            'edgecolors': 'k' if withedge else 'face'})
+            if is_id:
+                plot.annotate_text(pos, str(indices[i]), coord_system='data',
+                                   text_args={'color': 'k', 'va': 'center', 'ha': 'center',
+                                             'size': 8, 'zorder': i+10+0.5})
+
+
 
 class RamsesJob(Ramses):
 
