@@ -22,3 +22,7 @@ zoom:
 
 amuse:
 	${AMUSE} -m dynamics.cluster.code.main
+
+vals:
+	#${YT} ramtools/cloudvals.py ../2017-RAMSES/Job2.01.2
+	${YT} main.py ../2017-RAMSES/Job2.01.2
