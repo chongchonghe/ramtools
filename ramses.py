@@ -130,7 +130,17 @@ class Ramses():
         if data.ndim == 1:
             data = np.array([data])
         return data[:, 1:8]
-
+    def get_sink_acc_rate(self, outputID):
+        fp = self.get_sink_path(outputID)
+        if not os.path.isfile(fp):
+            raise FileNotFoundError
+        with open(fp, 'r') as f:
+            if not os.fstat(f.fileno()).st_size:
+                raise NoSinkParticle
+        data = np.loadtxt(fp, delimiter=',', usecols = (-2))
+        if data.ndim == 1:
+            data = np.array([data])
+        return data[:, :]
     def get_sink_positions(self, outputID):
         """Read n by 3 array of sink particle positions, where n is the number of
         particles: [x, y, z], all in code units (~ pc)
