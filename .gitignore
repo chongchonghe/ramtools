@@ -3,6 +3,8 @@
 test/plots
 *.swp
 trash-*
+.idea
+.gitignore
 
 # Emacs
 
