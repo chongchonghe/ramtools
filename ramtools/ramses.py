@@ -21,12 +21,8 @@ from glob import glob
 import f90nml
 import re
 import yt
-from .yt_field_descrs import FIELDS
-from .utilities import my_yt_load, get_sink_info_from_movie1, get_times_from_movie1
 from . import utilities as util
-
 from . import units
-# from .utils import units, center, utilities, tools
 
 RAM_DIR = ".."
 
@@ -69,7 +65,7 @@ class Ramses():
             self.jobPath, out)
 
     def load_ds(self, out):
-        return yt.load(self.get_info_path(out), fields=FIELDS)
+        return yt.load(self.get_info_path(out), fields=util.FIELDS)
 
     def get_ds(self):
         for i in range(1, 100):
@@ -200,10 +196,10 @@ class Ramses():
 
         """
 
-        return get_sink_info_from_movie1(f"{self.jobPath}/movie1", sinkid)
+        return util.get_sink_info_from_movie1(f"{self.jobPath}/movie1", sinkid)
 
     def get_times_from_movie1(self):
-        return get_times_from_movie1(f"{self.jobPath}/movie1")
+        return util.get_times_from_movie1(f"{self.jobPath}/movie1")
 
     def get_time(self, outputID, readinfo=False):
         """ Get the time in Myr (not substracting t_relax) of data_id.
