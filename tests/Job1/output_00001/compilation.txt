@@ -1,0 +1,5 @@
+ compile date = 01/15/20-01:32:16
+ patch dir    = ../patch/frig/cloud_init:../patch/frig/main
+ remote repo  = https://chongchonghe@bitbucket.org/chongchonghe/ramses_frig_he.git
+ local branch = master
+ last commit  = 260104e18e04c92f9f287be0d055a0dadc500c8b

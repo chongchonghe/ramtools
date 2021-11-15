@@ -1,0 +1,15 @@
+nvar        =         14
+variable # 1: density
+variable # 2: velocity_x
+variable # 3: velocity_y
+variable # 4: velocity_z
+variable # 5: B_left_x
+variable # 6: B_left_y
+variable # 7: B_left_z
+variable # 8: B_right_x
+variable # 9: B_right_y
+variable #10: B_right_z
+variable #11: thermal_pressure
+variable #12: passive_scalar_1
+variable #13: passive_scalar_2
+variable #14: passive_scalar_3

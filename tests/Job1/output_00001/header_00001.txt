@@ -1,0 +1,10 @@
+ Total number of particles
+           0
+ Total number of dark matter particles
+           0
+ Total number of star particles
+           0
+ Total number of sink particles
+           0
+ Particle fields
+pos vel mass iord level tform 
