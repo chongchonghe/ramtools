@@ -2,7 +2,7 @@
 
 `ramtools` is a convenient and fast tool to post-process RAMSES-RT simulations. 
 
-More instructions are available at the [ramtools documentation site](https://chongchonghe.github.io/ramtools-pages/). 
+More instructions are available on the [official ramtools documentation site](https://chongchonghe.github.io/ramtools-pages/). 
 
 Author: Chong-Chong He (che1234@umd.edu)
 
