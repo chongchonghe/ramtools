@@ -1,6 +1,10 @@
 # -*- mode: gitignore; -*-
 
 docs/
+docs.bk/
+docs.bk2/
+tests/Job2/
+tests/h5_data/
 
 # General
 .DS_Store

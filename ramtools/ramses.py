@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Defines the Ramses class, the core of ramtools.
@@ -70,9 +69,12 @@ Examples
                 else:
                     ram_dir = RAM_DIR
             self.jobPath = f"{ram_dir}/Job{jobid}"
-        self.get_units()
         self.ds1 = None
-        self.tRelax = self.get_trelax()
+        if self.get_units() == 0:
+            self.tRelax = self.get_trelax()
+        self.data_dir = os.path.join(os.path.dirname(
+            self.jobPath if self.jobPath[-1] != '/' else self.jobPath[:-1]
+        ), "h5_data")
 
     def get_info_path(self, out):
         """Return the path to info_out.txt"""
@@ -121,7 +123,7 @@ Examples
         self.pot_ene_in_cgs = units.G * self.unit_m**2 / self.unit_l_code
         self.unit_B = util.get_unit_B(self.ds1)
         # self.n_colden_H = np.double(self.unitDen2Hcc * self.unit_l)
-        return
+        return 0
 
     def get_sink_path(self, out):
         """Return the path to sink_*.csv """
