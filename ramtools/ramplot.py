@@ -32,7 +32,7 @@ def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
               weight_field=None):
     """
     Args:
-        p (YT plot): 
+        p (YT plot):
         zlim (tuple): limits of the field
         mu (float): the mean particle weight. The mass density rho = mu * n
         quant (str): 'volume' or 'column' for volumetric and column density
@@ -81,8 +81,9 @@ class RamPlot(Ramses):
                  normal=None,
                  north=None,
                  tag=0,
+                 use_h5=True,
                  ):
-        """Plot projection or slice plot. When plotting projection plot, an 
+        """Plot projection or slice plot. When plotting projection plot, an
         intermediate data is stored for fast recreate of the figure.
 
         Args:
@@ -94,11 +95,10 @@ class RamPlot(Ramses):
             field (tuple or str): the field to plot. Default: 'density'
             weight_field (tuple or str): the field to weight with. Default: 'density'
             kind (str): the figure type, either 'projection' (default) or 'slice'.
-            normal (tuple or list): 
-        
+            normal (tuple or list):
+
         Returns:
             p (YT plot instance): you can save it to file by `p.save('filename.png')`
-
         """
 
         width = self.to_boxlen(width)
@@ -113,6 +113,8 @@ class RamPlot(Ramses):
             normal = tuple(normal)
         if isinstance(north, list):
             north = tuple(north)
+        if ds is None:
+            ds = self.load_ds(out)
 
         params = dict(
             jobdir = os.path.abspath(self.jobPath),
@@ -131,34 +133,76 @@ class RamPlot(Ramses):
         )
         hashstr = dict_hash(params)
         h5fn = os.path.join(self.data_dir, hashstr + ".h5")
-        if ds is None:
-            ds = self.load_ds(out)
-        if not os.path.exists(h5fn):
-            if not os.path.isdir(self.data_dir):
-                os.makedirs(self.data_dir)
+
+        # params = dict(
+        #     jobdir = os.path.abspath(self.jobPath),
+        #     out = out,
+        #     center = center,    # in boxlen unit
+        #     width = width,      # in boxlen unit
+        #     field = field,
+        #     tag = "box",
+        # )
+        # hashstr = dict_hash(params)
+        # h5fn = os.path.join(self.data_dir, hashstr + ".h5")
+        # if not os.path.exists(h5fn):
+        #     if ds is None:
+        #         ds = self.load_ds(out)
+        #     box = ds.box([c - width/2 for c in center],
+        #                  [c + width/2 for c in center])
+        #     box.save_as_dataset(h5fn, fields=field)
+
+        if use_h5:
+            if not os.path.exists(h5fn):
+                if not os.path.isdir(self.data_dir):
+                    os.makedirs(self.data_dir)
+                if kind == "slice":
+                    if normal is None:
+                        pass
+                    p = ds.slice(axis, field, center=center,
+                                field_parameters={'width': width},
+                                )
+                elif kind == "projection":
+                    if normal is None:
+                        p = ds.proj(field=field, axis=axis, center=center,
+                                    weight_field=weight_field,
+                                    # weight_field=None,
+                                    field_parameters={'width': width},
+                                    )
+                    else:   # TODO
+                        p = ds.proj(field=field, axis=axis, center=center,
+                                    weight_field=weight_field,
+                                    # weight_field=None,
+                                    field_parameters={'width': width},
+                                    )
+                else:
+                    warning(f"Unknown kind: {kind}")
+                    return
+                p.save_as_dataset(h5fn, ) #fields=[field])
+                # # option 2, FixedResolutionBuffer
+                # if axis in [2, 'z']:
+                #     bounds = (center[0] - width/2, center[1] - width/2,
+                #               center[1] - width/2, center[1] + width/2)
+                # frb = yt.FixedResolutionBuffer(p, bounds, (1024, 1024))
+                # frb.save_as_dataset(h5fn, fields=[field])
+                # # frb.export_hdf5(h5fn, fields=[field])
+
+            # data = yt.load(h5fn).all_data()
+            data = yt.load(h5fn)
             if kind == "slice":
-                p = ds.slice(axis, field, center=center,
-                            field_parameters={'width': width},
-                            )
+                p = yt.SlicePlot(data, axis, field, center=center)
             elif kind == "projection":
-                p = ds.proj(field=field, axis=axis, center=center,
-                            weight_field=weight_field,
-                            # weight_field=None,
-                            field_parameters={'width': width},
-                            )
+                print("plotting projection, center =", center)
+                p = yt.ProjectionPlot(data, axis, field, center=center,
+                                      width=width, weight_field=weight_field)
             else:
                 warning(f"Unknown kind: {kind}")
                 return
-            p.save_as_dataset(h5fn)
-        data = yt.load(h5fn)
-        if kind == "slice":
-            p = yt.SlicePlot(data, axis, field)
-        elif kind == "projection":
-            p = yt.ProjectionPlot(data, axis, field,
-                                  weight_field=weight_field)
-        else:
-            warning(f"Unknown kind: {kind}")
-            return
+        else:       # not using h5 data
+            if kind == "slice":
+                p = yt.SlicePlot(data, axis, field)
+            elif kind == "projection":
+                p = yt.ProjectionPlot(ds, axis, field, center=center,
+                                      width=width, weight_field=weight_field)
         if field == ("gas", "density"):
             den_setup(p, weight_field=weight_field)
         if field == ("gas", "temperature"):
@@ -172,7 +216,7 @@ class RamPlot(Ramses):
 
         Args:
             ourdir (int):
-            prefix (str): prefix of the filenames (default "output"). The name 
+            prefix (str): prefix of the filenames (default "output"). The name
                 of the figures would be prefix-x-output_00001.png
             center (str or list): (default 'c')
             width (float or tuple): (default 1.0) float as in boxlen unit or a
@@ -180,9 +224,10 @@ class RamPlot(Ramses):
 
         Returns:
             None
-
         """
 
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
         for i in self.get_all_outputs():
             for axis in ['x', 'y', 'z']:
                 p = self.plot_prj(i, center=center, width=width, axis=axis)
