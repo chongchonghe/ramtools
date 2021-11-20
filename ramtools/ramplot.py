@@ -28,6 +28,39 @@ def dict_hash(dictionary: Dict[str, Any]) -> str:
     return dhash.hexdigest()
 
 
+def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
+              weight_field=None):
+    """
+    Args:
+        p (YT plot): 
+        zlim (tuple): limits of the field
+        mu (float): the mean particle weight. The mass density rho = mu * n
+        quant (str): 'volume' or 'column' for volumetric and column density
+    """
+
+    if unit == 'number_density':
+        if weight_field == "density":
+            p.set_unit(('gas', 'density'), 'cm**-3',
+                    equivalency='number_density',
+                    equivalency_kwargs={'mu': mu})
+    if zlim is not None:
+        p.set_zlim(('gas', 'density'), zlim[0], zlim[1])
+    # This will change the pixel size of the figure. Be careful!
+    p.set_figure_size(6)
+    p.set_cmap(('gas', 'density'), 'inferno')
+    p.annotate_timestamp(time_format='{time:.3f} {units}',
+                         time_offset=time_offset)
+
+
+def T_setup(p, zlim=None, time_offset=None):
+    if zlim is not None:
+        p.set_zlim('temperature', zlim[0], zlim[1])
+    p.set_figure_size(6)
+    p.set_cmap('temperature', 'gist_heat')
+    p.annotate_timestamp(time_format='{time:.3f} {units}',
+                         time_offset=time_offset)
+
+
 class RamPlot(Ramses):
 
     def to_boxlen(self, quant):
@@ -62,6 +95,9 @@ class RamPlot(Ramses):
             weight_field (tuple or str): the field to weight with. Default: 'density'
             kind (str): the figure type, either 'projection' (default) or 'slice'.
             normal (tuple or list): 
+        
+        Returns:
+            p (YT plot instance): you can save it to file by `p.save('filename.png')`
 
         """
 
@@ -129,35 +165,25 @@ class RamPlot(Ramses):
             T_setup(p)
         return p
 
+    def projection_for_all_outputs(self, outdir, prefix="output",
+                                   center='c', width=1.0):
+        """Plot (density-weighted) projection of density for all frames of a
+        simulation job.
 
-def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
-              weight_field=None):
-    """
-    Args:
-        p (YT plot): 
-        zlim (tuple): limits of the field
-        mu (float): the mean particle weight. The mass density rho = mu * n
-        quant (str): 'volume' or 'column' for volumetric and column density
-    """
+        Args:
+            ourdir (int):
+            prefix (str): prefix of the filenames (default "output"). The name 
+                of the figures would be prefix-x-output_00001.png
+            center (str or list): (default 'c')
+            width (float or tuple): (default 1.0) float as in boxlen unit or a
+                tuple containing a number and unit, e.g. (0.1, 'pc')
 
-    if unit == 'number_density':
-        if weight_field == "density":
-            p.set_unit(('gas', 'density'), 'cm**-3',
-                    equivalency='number_density',
-                    equivalency_kwargs={'mu': mu})
-    if zlim is not None:
-        p.set_zlim(('gas', 'density'), zlim[0], zlim[1])
-    # This will change the pixel size of the figure. Be careful!
-    p.set_figure_size(6)
-    p.set_cmap(('gas', 'density'), 'inferno')
-    p.annotate_timestamp(time_format='{time:.3f} {units}',
-                         time_offset=time_offset)
+        Returns:
+            None
 
+        """
 
-def T_setup(p, zlim=None, time_offset=None):
-    if zlim is not None:
-        p.set_zlim('temperature', zlim[0], zlim[1])
-    p.set_figure_size(6)
-    p.set_cmap('temperature', 'gist_heat')
-    p.annotate_timestamp(time_format='{time:.3f} {units}',
-                         time_offset=time_offset)
+        for i in self.get_all_outputs():
+            for axis in ['x', 'y', 'z']:
+                p = self.plot_prj(i, center=center, width=width, axis=axis)
+                p.save(os.path.join(outdir, f"{prefix}-{axis}-output_{i:05d}.png"))
