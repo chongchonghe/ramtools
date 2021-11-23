@@ -26,6 +26,23 @@ def basic():
     print("times =", times)
     print("sinks.shape =", np.array(sink).shape)
 
+def fastplot():
+    from ramtools import ytfast
+    print("\nTest 5: fast plotting")
+    rp = rt.Ramses("tests/Job2")
+    t1 = time()
+    p1 = ytfast.ProfilePlot(
+        ds = rp.load_ds(40),
+        axis = 2,
+        fields = ('gas', 'density'),
+        center = 'c',
+        width = 0.8,
+        axes_unit = 'AU',
+        weight_field = ('gas', 'density'),
+    )
+    p1.save("t.png")
+    print("\nFirst time: ", time() - t1)
+
 def plot():
     print("\nTest 4: plotting")
     rp = rt.RamPlot("tests/Job2")
@@ -39,8 +56,10 @@ def plot():
     print("\nSecond time: ", time() - t1)
     # print(rp.get_time(1))
 
-basic()
+# basic()
 if len(sys.argv) >= 2:
     if sys.argv[1] == "plot":
         plot()
+    if sys.argv[1] == "fastplot":
+        fastplot()
 print('Tests done. Successful!')

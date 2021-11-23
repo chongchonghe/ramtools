@@ -87,12 +87,16 @@ class RamPlot(Ramses):
 
         Args:
             out (int): the frame number
-            ds (YT ds): optional. If not specified, will load a ds using self.load_ds
-            center (tuple): the center as a tuple in boxlen unit. Default: (0.5, 0.5, 0.5)
-            width (tuple or float): the width of the area to plot. e.g. (0.1 'pc'); 0.02. Default: 0.5
+            ds (YT ds): optional. If not specified, will load a ds using 
+                self.load_ds
+            center (tuple): the center as a tuple in boxlen unit. Default: 
+                (0.5, 0.5, 0.5)
+            width (tuple or float): the width of the area to plot. e.g. 
+                (0.1 'pc'); 0.02. Default: 0.5
             axis (int or str): the axis of the line of sight. Default: 'x'
             field (tuple or str): the field to plot. Default: 'density'
-            weight_field (tuple or str): the field to weight with. Default: 'density'
+            weight_field (tuple or str): the field to weight with. Default: 
+                'density'
             kind (str): the figure type, either 'projection' (default) or 'slice'.
             normal (tuple or list): 
         
