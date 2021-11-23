@@ -5,6 +5,8 @@ docs.bk/
 docs.bk2/
 tests/Job2/
 tests/h5_data/
+.idea/
+.gitignore
 
 # General
 .DS_Store
