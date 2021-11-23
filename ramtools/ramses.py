@@ -72,9 +72,9 @@ Examples
         self.ds1 = None
         if self.get_units() == 0:
             self.tRelax = self.get_trelax()
-        self.data_dir = os.path.join(os.path.dirname(
-            self.jobPath if self.jobPath[-1] != '/' else self.jobPath[:-1]
-        ), "h5_data")
+        self.ramses_dir = os.path.dirname(self.jobPath if self.jobPath[-1] !=
+                                          '/' else self.jobPath[:-1])
+        self.data_dir = os.path.join(self.ramses_dir, "h5_data")
 
     def get_info_path(self, out):
         """Return the path to info_out.txt"""
