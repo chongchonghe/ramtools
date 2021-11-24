@@ -13,7 +13,6 @@ import numpy as np
 from matplotlib.pyplot import cm
 from glob import glob
 import f90nml
-import re
 import yt
 from . import utilities as util
 from . import units

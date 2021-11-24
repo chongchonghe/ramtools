@@ -28,10 +28,11 @@ def basic():
 
 def fastplot():
     from ramtools import ytfast
+    ytfast.set_data_dir("./tests/h5_data")
     print("\nTest 5: fast plotting")
     rp = rt.Ramses("tests/Job2")
     t1 = time()
-    p1 = ytfast.ProfilePlot(
+    p1 = ytfast.ProjectionPlot(
         ds = rp.load_ds(40),
         axis = 2,
         fields = ('gas', 'density'),
@@ -42,6 +43,37 @@ def fastplot():
     )
     p1.save("t.png")
     print("\nFirst time: ", time() - t1)
+
+def fastplot_phase():
+    from ramtools import ytfast
+    ytfast.set_data_dir("./tests/h5_data")
+    print("\nTest 5: fast plotting")
+    rp = rt.Ramses("tests/Job2")
+    unitB = rp.unit_B
+    def define_field(ds):                                                                        
+        def _Bmag(field, data):                                                                  
+            B2 = ((data[("ramses", "x-Bfield-left")] + data[("ramses", "x-Bfield-right")])**2 +  
+                (data[("ramses", "y-Bfield-left")] + data[("ramses", "y-Bfield-right")])**2 +    
+                (data[("ramses", "z-Bfield-left")] + data[("ramses", "z-Bfield-right")])**2) / 4 
+            return np.sqrt(B2) * unitB.value * 1e6      # in cgs (uGauss)                        
+        ds.add_field(('gas', 'Bmag'), function=_Bmag, sampling_type='cell')
+    f_x = ('gas', 'density')                                                                     
+    f_y = ('gas', 'Bmag')  
+    f_z = ('gas', 'cell_mass')
+    t1 = time()
+    print("------------------")
+    f, ax, p, cb = ytfast.PhasePlot(
+        rp.load_ds(40).all_data(),
+        f_x, 
+        f_y,
+        [f_z],
+        weight_field=None,
+        define_field=define_field,
+        zlims=[1e31, 1e36]
+    )
+    print("\nLog 1, time: ", time() - t1)
+    f.savefig("t_phaseplot.png", dpi=300)
+    print("\nTime: ", time() - t1)
 
 def plot():
     print("\nTest 4: plotting")
@@ -57,9 +89,16 @@ def plot():
     # print(rp.get_time(1))
 
 # basic()
-if len(sys.argv) >= 2:
-    if sys.argv[1] == "plot":
-        plot()
-    if sys.argv[1] == "fastplot":
-        fastplot()
+if len(sys.argv) == 1:
+    main()
+else:
+    arg = sys.argv[1]
+    if arg == 'all':
+        pass
+    eval(arg + "()")
+# if len(sys.argv) >= 2:
+#     if sys.argv[1] == "plot":
+#         plot()
+#     if sys.argv[1] == "fastplot":
+#         fastplot()
 print('Tests done. Successful!')

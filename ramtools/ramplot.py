@@ -14,6 +14,8 @@ from typing import Dict, Any
 import hashlib
 import json
 
+from ramtools import ytfast
+
 try:
     yt.set_log_level(40)
 except:
@@ -138,23 +140,6 @@ class RamPlot(Ramses):
         hashstr = dict_hash(params)
         h5fn = os.path.join(self.data_dir, hashstr + ".h5")
 
-        # params = dict(
-        #     jobdir = os.path.abspath(self.jobPath),
-        #     out = out,
-        #     center = center,    # in boxlen unit
-        #     width = width,      # in boxlen unit
-        #     field = field,
-        #     tag = "box",
-        # )
-        # hashstr = dict_hash(params)
-        # h5fn = os.path.join(self.data_dir, hashstr + ".h5")
-        # if not os.path.exists(h5fn):
-        #     if ds is None:
-        #         ds = self.load_ds(out)
-        #     box = ds.box([c - width/2 for c in center],
-        #                  [c + width/2 for c in center])
-        #     box.save_as_dataset(h5fn, fields=field)
-
         if use_h5:
             if force_redo or (not os.path.exists(h5fn)):
                 if not os.path.isdir(self.data_dir):
@@ -232,14 +217,23 @@ class RamPlot(Ramses):
 
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-        # for i in self.get_all_outputs():
-        for i in range(19, self.get_all_outputs()[-1]+1):
+        for i in self.get_all_outputs():
+        # for i in range(19, self.get_all_outputs()[-1]+1):
             for axis in ['x', 'y', 'z']:
                 fn = os.path.join(outdir, f"{prefix}-{axis}-output_{i:05d}.png")
                 print("\nPlotting", fn)
                 try:
-                    p = self.plot_prj(i, center=center, width=width, axis=axis,
-                                      force_redo=force_redo)
+                    p = ytfast.ProfilePlot(
+                        ds = self.load_ds(i),
+                        axis = axis,
+                        fields = ('gas', 'density'),
+                        center = 'c',
+                        width = 0.8,
+                        axes_unit = 'pc',
+                        weight_field = ('gas', 'density'),
+                    )
+                    # p = self.plot_prj(i, center=center, width=width, axis=axis,
+                    #                   force_redo=force_redo)
                 except Exception as _e:
                     print("Caught error (ignored):")
                     print(_e)
@@ -338,3 +332,21 @@ class RamPlot(Ramses):
         except:
             pass
         return f, ax
+
+    def plot_phaseplot_for_all(self, figdir, center, radius, prefix='', phaseplot_kwargs={}):
+        """
+
+        Usage:
+
+            >>> plot_phaseplot_for_all(center='c', radius=0.4, x_field=('gas', 'density'),
+                    y_field=('gas', 'temperature'), z_fields=('gas', 'cell_mass'))
+        """
+
+        if not os.path.exists(figdir):
+            os.makedirs(figdir)
+        for out in self.get_all_outputs():
+            ds = self.load_ds(out)
+            sph = yt.Sphere(center=center, radius=radius, )
+            f, ax, p, cb = ytfast.PhasePlot(sph, **phaseplot_kwargs)
+            figfn = f"{figdir}/{prefix}_{out:03d}.pdf"
+            f.savefig(figfn)

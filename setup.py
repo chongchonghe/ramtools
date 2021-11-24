@@ -21,5 +21,5 @@ setup(
     # packages=["calc"],
     # entry_points={'console_scripts': ['calc=calc:main']},
     # entry_points={'console_scripts': ['calc=calc.__init__:main']},
-    install_requires=['yt>=3.6', 'astropy>=4.0'],
+    install_requires=['yt>=3.6', 'astropy>=4.0', 'hashlib', 'json', 'f90nml==1.1.1', 'glob', ],
 )

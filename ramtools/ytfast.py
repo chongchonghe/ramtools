@@ -1,12 +1,29 @@
-"""
-A general wrapper to make some fo the common yt functions more efficient by reusing intermediate data
+"""A general wrapper to make some fo the common yt functions more
+efficient by reusing intermediate data
+
+General-purpose yt wrappers. Apply to any data that yt supports.
+
 """
 
 import os
+import numpy as np
 import yt
+from matplotlib import colors
+import matplotlib.pyplot as plt
 from typing import Dict, Any
 import hashlib
 import json
+from time import time
+
+try:
+    import logging
+    logger = logging.basicConfig(level=logging.INFO)
+    Logger = logging.getLogger(__name__)
+    Logger.setLevel(logging.ERROR)
+    ISLOG = True
+except ModuleNotFoundError:
+    ISLOG = False
+    pass
 
 try:
     yt.set_log_level(40)
@@ -32,9 +49,9 @@ def to_tuple(x):
         return tuple(x)
     return x
 
-def ProfilePlot(ds, axis, fields, center='c', width=None,
-                axes_unit=None, weight_field=None, max_level=None,
-                origin='center-window', tag=None, **kwargs):
+def ProjectionPlot(ds, axis, fields, center='c', width=None,
+                   axes_unit=None, weight_field=None, max_level=None,
+                   origin='center-window', tag=None, **kwargs):
 
     if isinstance(axis, int):
         axis = ['x', 'y', 'z'][axis]
@@ -71,3 +88,109 @@ def ProfilePlot(ds, axis, fields, center='c', width=None,
 
 def SlicePlot():
     pass
+
+def PhasePlot(data_source, x_field, y_field, z_fields,
+              weight_field=('gas', 'mass'), x_bins=128, y_bins=128,
+              accumulation=False, fractional=False, fontsize=18,
+              figure_size=8.0, shading='nearest', extrema=None,
+              units=None, zlims=None, force_redo=False,
+              define_field=None, is_cb=True, cb_label='',
+              f=None, ax=None, ret='imshow'):
+    """
+
+    Args:
+        # args passed to yt.PhasePlot
+        data_source (YTSelectionContainer Object)
+        x_field (tuple)
+        y_field (tuple)
+        z_fields (list of tuples)
+        weight_field (tuple)
+        # args passed to yt.PhasePlot
+        zlims (list_like): lims of z_fields
+        force_redo (bool): toggle always make h5 data
+        define_field (func): function to define a new field
+        is_cb (bool): toggle show colorbar (default: True)
+        cb_label (str): colorbar label (default: '')
+        f (plt.figure): figure to plot on (default: None)
+        ax (plt.axis): axis to plot on (default: None)
+        ret (str): what to return (default: 'imshow'). One of ['imshow', 'data']
+    
+    """
+    
+    # try:
+    #     data_source.ds
+    # except AttributeError:
+    #     Warning("data_source has to be YTSelectionContainer Object, e.g. all_data, sphere")
+    #     return
+    # logs_str = {str(key): value for key, value in logs.items()}
+
+    t1 = time()
+    if not isinstance(x_field, tuple):
+        x_field = ('gas', x_field)
+    if not isinstance(y_field, tuple):
+        y_field = ('gas', y_field)
+    if not isinstance(z_fields[0], tuple):
+        z_fields[0] = ('gas', z_fields[0])
+    if extrema is None:
+        extrema = {x_field: [None, None], y_field: [None, None]}
+    extrema_str = {str(key): value for key, value in extrema.items()}
+    # if units is not None:
+    #     units_str = {str(key): value for key, value in units.items()}
+    # else:
+    #     units_str = units
+
+    hash_params = dict(
+        ds = str(data_source.ds.__repr__()),
+        data_source = str(data_source.__repr__()),
+        x_field = x_field, y_field = y_field, z_fields = z_fields,
+        weight_field = weight_field, x_bins=128, y_bins=128,
+        extrema = extrema_str, accumulation=accumulation,
+    )
+    hashstr = dict_hash(hash_params)
+    h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
+    if ISLOG: Logger.info(f"Log 1, dt = {time() - t1}")
+    if force_redo or (not os.path.exists(h5fn)):
+        if define_field is not None:
+            define_field(data_source.ds)
+        assert x_bins == y_bins
+        p = yt.create_profile(data_source, [x_field, y_field],
+                              z_fields, weight_field=weight_field,
+                              extrema=extrema, n_bins=x_bins,
+                              )
+        p.save_as_dataset(h5fn)
+    if ISLOG: Logger.info(f"Log 2, dt = {time() - t1}")
+    t1 = time()
+    prof = yt.load(h5fn)
+    if ret == 'data':
+        return prof
+    if ISLOG: Logger.info(f"Log 3, dt = {time() - t1}")
+    print(f"time: {time() - t1}")
+    dat = prof.data[z_fields[0]].T
+    extents = [prof.data[x_field].min(), prof.data[x_field].max(),
+                prof.data[y_field].min(), prof.data[y_field].max()]
+    extent_log = np.log10(extents)
+    if zlims is None:
+        thenorm = colors.LogNorm()
+    else:
+        thenorm = colors.LogNorm(vmin=zlims[0], vmax=zlims[1])
+    if f is None:
+        f, ax = plt.subplots()
+    if ISLOG: Logger.info(f"Log 4, dt = {time() - t1}")
+    p = ax.imshow(dat,
+                  norm=thenorm,
+                  extent=extent_log,
+                  aspect="auto", origin="lower",
+                  )
+    if ISLOG: Logger.info(f"Log 5, dt = {time() - t1}")
+    if is_cb:
+        cb = f.colorbar(p)
+        cb.set_label(cb_label)
+    str1 = x_field[1] if isinstance(x_field, tuple) else x_field
+    str2 = y_field[1] if isinstance(y_field, tuple) else y_field
+    ax.set(xlabel="log " + str1, ylabel=r"log " + str2)
+    del dat
+    if ISLOG: Logger.info(f"Log 6, dt = {time() - t1}")
+    if is_cb:
+        return f, ax, p, cb
+    else:
+        return f, ax, p
