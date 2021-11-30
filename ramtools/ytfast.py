@@ -60,11 +60,11 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
         axis = axis,
         fields = fields,
         center = to_tuple(center),
-        width = width, 
+        width = width,
         weight_field = weight_field,
         max_level = max_level,
         kind = "prj_plot",
-        tag = tag,  # a free tag, used to distinguish different versions 
+        tag = tag,  # a free tag, used to distinguish different versions
     )
     # print(hash_dict)
     hashstr = dict_hash(hash_dict)
@@ -82,7 +82,7 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     data = yt.load(h5fn)
     p = yt.ProjectionPlot(data, axis, fields, center=center,
                           width=width, weight_field=weight_field,
-                          axes_unit=axes_unit, max_level=max_level, 
+                          axes_unit=axes_unit, max_level=max_level,
                           **kwargs)
     return p
 
@@ -90,12 +90,12 @@ def SlicePlot():
     pass
 
 def PhasePlot(data_source, x_field, y_field, z_fields,
-              weight_field=('gas', 'mass'), x_bins=128, y_bins=128,
+              weight_field=None, x_bins=128, y_bins=128,
               accumulation=False, fractional=False, fontsize=18,
               figure_size=8.0, shading='nearest', extrema=None,
               units=None, zlims=None, force_redo=False,
-              define_field=None, is_cb=True, cb_label='',
-              f=None, ax=None, ret='imshow'):
+              define_field=None, is_cb=True, cmap="viridis",
+              cb_label='', f=None, ax=None, ret='imshow',):
     """
 
     Args:
@@ -114,9 +114,9 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
         f (plt.figure): figure to plot on (default: None)
         ax (plt.axis): axis to plot on (default: None)
         ret (str): what to return (default: 'imshow'). One of ['imshow', 'data']
-    
+
     """
-    
+
     # try:
     #     data_source.ds
     # except AttributeError:
@@ -139,15 +139,17 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
     # else:
     #     units_str = units
 
+    t1 = time()
     hash_params = dict(
         ds = str(data_source.ds.__repr__()),
         data_source = str(data_source.__repr__()),
         x_field = x_field, y_field = y_field, z_fields = z_fields,
-        weight_field = weight_field, x_bins=128, y_bins=128,
+        weight_field = weight_field, x_bins=x_bins, y_bins=y_bins,
         extrema = extrema_str, accumulation=accumulation,
     )
     hashstr = dict_hash(hash_params)
     h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
+    jsonfn = os.path.join(DATA_DIR, hashstr + ".json")
     if ISLOG: Logger.info(f"Log 1, dt = {time() - t1}")
     if force_redo or (not os.path.exists(h5fn)):
         if define_field is not None:
@@ -158,13 +160,14 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
                               extrema=extrema, n_bins=x_bins,
                               )
         p.save_as_dataset(h5fn)
+        with open(jsonfn, 'w') as fi:
+            json.dump(hash_params, fi, indent=2)
     if ISLOG: Logger.info(f"Log 2, dt = {time() - t1}")
-    t1 = time()
     prof = yt.load(h5fn)
     if ret == 'data':
         return prof
     if ISLOG: Logger.info(f"Log 3, dt = {time() - t1}")
-    print(f"time: {time() - t1}")
+    # print(f"time: {time() - t1}")
     dat = prof.data[z_fields[0]].T
     extents = [prof.data[x_field].min(), prof.data[x_field].max(),
                 prof.data[y_field].min(), prof.data[y_field].max()]
@@ -173,16 +176,17 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
         thenorm = colors.LogNorm()
     else:
         thenorm = colors.LogNorm(vmin=zlims[0], vmax=zlims[1])
-    if f is None:
+    if f is None and ax is None:
         f, ax = plt.subplots()
     if ISLOG: Logger.info(f"Log 4, dt = {time() - t1}")
     p = ax.imshow(dat,
                   norm=thenorm,
                   extent=extent_log,
                   aspect="auto", origin="lower",
+                  cmap=cmap,
                   )
     if ISLOG: Logger.info(f"Log 5, dt = {time() - t1}")
-    if is_cb:
+    if is_cb and f is not None:
         cb = f.colorbar(p)
         cb.set_label(cb_label)
     str1 = x_field[1] if isinstance(x_field, tuple) else x_field
@@ -194,3 +198,59 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
         return f, ax, p, cb
     else:
         return f, ax, p
+
+def ProfilePlot(data_source, x_field, y_fields, weight_field=('gas', 'mass'),
+                n_bins=64, accumulation=False, fractional=False, label=None,
+                plot_spec=None, x_log=True, y_log=True, xlims=[None, None],
+                force_redo=False, define_field=None, f=None, ax=None,
+                ret='plot', mpl_kwargs={}):
+
+    hash_params = dict(
+        ds = str(data_source.ds.__repr__()),
+        data_source = str(data_source.__repr__()),
+        x_field = x_field, y_fields = y_fields,
+        weight_field = weight_field,
+    )
+    if n_bins != 64:
+        hash_params['n_bins'] = n_bins
+    if accumulation:
+        hash_params['accumulation'] = accumulation
+    if fractional:
+        hash_params['fractional'] = fractional
+    # if not x_log:
+    #     hash_params['x_log'] = x_log
+    # if not y_log:
+    #     hash_params['y_log'] = y_log
+    if not xlims == [None, None]:
+        hash_params['xlims'] = xlims
+    hashstr = dict_hash(hash_params)
+    h5fn = os.path.join(DATA_DIR, '1dprofile-' + hashstr + ".h5")
+    jsonfn = os.path.join(DATA_DIR, '1dprofile-' + hashstr + ".json")
+    if force_redo or (not os.path.exists(h5fn)):
+        print(f"Making {h5fn}")
+        if define_field is not None:
+            define_field(data_source.ds)
+        p = yt.create_profile(data_source, x_field, y_fields,
+                              weight_field=weight_field, n_bins=n_bins,
+                              extrema={x_field: xlims}, accumulation=accumulation,
+                              fractional=fractional,
+                              )
+        p.save_as_dataset(h5fn)
+        with open(jsonfn, 'w') as fi:
+            json.dump(hash_params, fi, indent=2)
+    prof = yt.load(h5fn)
+    x = prof.data[x_field]
+    y = prof.data[y_fields[0]]
+    if ret == 'data':
+        return x, y
+    if f is None and ax is None:
+        f, ax = plt.subplots()
+    ax.plot(x, y, **mpl_kwargs)
+    if x_log: ax.set_xscale('log')
+    if y_log: ax.set_yscale('log')
+    str1 = x_field[1] if isinstance(x_field, tuple) else x_field
+    str2 = y_fields[0][1] if isinstance(y_fields[0], tuple) else y_fields[0]
+    if x_log: str1 = "log " + str1
+    if y_log: str2 = "log " + str2
+    ax.set(xlabel=str1, ylabel=str2)
+    return f, ax

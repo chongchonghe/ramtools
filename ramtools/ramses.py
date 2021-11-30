@@ -20,8 +20,8 @@ from . import units
 RAM_DIR = None
 
 class Ramses():
-    """This is the core of ramtools. Most of the times, start using ramtools  
-by claiming this class. 
+    """This is the core of ramtools. Most of the times, start using ramtools
+by claiming this class.
 
 Examples
 --------
@@ -30,7 +30,7 @@ Examples
 >>> par = ram.get_sink_particles(1)
 >>> mass = par[:, 0]
 >>> print("Total mass =", mass.sum())
-    
+
 >>> rt.set_RAM_DIR("../tests")
 >>> ram = rt.Ramses(jobid="1")
 
@@ -40,7 +40,7 @@ Examples
         """Declare a Ramses instance for a given job. The job can be
         specified by one of the following options:
 
-        1. r = Ramses(`job_dir`), where `job_dir` is the path to the job directory. 
+        1. r = Ramses(`job_dir`), where `job_dir` is the path to the job directory.
         2. r = Ramses(jobid = `_id`, ram_dir = `ram_dir`), where `ram_dir` is the directory where all the RAMSES jobs are stored, and `_id` is the string after "Job". This is equivalent to Ramses(`ram_dir/Job_id`)
         3. ramtools.set_RAM_DIR(`ram_dir`); r = Ramses(jobid = `_id`).
 
@@ -80,6 +80,9 @@ Examples
         return "{0}/output_{1:05d}/info_{1:05d}.txt".format(
             self.jobPath, out)
 
+    def exist(self, out):
+        return os.path.exists(self.get_info_path(out))
+
     def load_ds(self, out):
         """Return a yt.load instance of the frame `out`"""
         return yt.load(self.get_info_path(out), fields=util.FIELDS)
@@ -94,7 +97,7 @@ Examples
         return 1                # fail to find an output
 
     def get_units(self):
-        """Define the following units for this job: 
+        """Define the following units for this job:
 
         1. unit_l: this is the boxlen (in cm), which equals to unit_l_code * boxlen
         2. unit_l_code: this is the actually length unit (in cm)
@@ -135,7 +138,7 @@ Examples
         Args:
             out (int): the output frame
 
-        Return: 
+        Return:
             particles (array): (n, 7) array containing the sink
                 parameters, where n is the number of particles and the 7
                 columns are: [m, x, y, z, vx, vy, vx], all in code units
@@ -159,12 +162,12 @@ Examples
 
     def get_sink_positions(self, out):
         """
-        
+
         Args:
             out (int): the output frame
 
         Return:
-            array: an array with shape (n, 3) containing the particle positions 
+            array: an array with shape (n, 3) containing the particle positions
                 in code unit
 
         Raise:
@@ -196,8 +199,8 @@ Examples
         return self.get_sink_particles(outputID)[:, 0] * self.unit_m / units.Msun
 
     def get_sink_acc_rate(self, out):
-        """Get the sink accretion rate. 
-        
+        """Get the sink accretion rate.
+
         .. warning:: DO NOT USE THIS. The results are not trustable. This column of data from RAMSES outputs seems to be problematic
 
         """
@@ -335,11 +338,11 @@ Examples
     def overplot_sink(self, p, out, plot_args={}):
         """Over plot sink particles (as green crosses) on top of a YT
         slice/project plot
-        
+
         Args:
             p (yt.sliceplot or yt.projectplot): the plot to overplot on
             out (int): the output frame
-            plot_args (dict): 
+            plot_args (dict):
 
         """
 
@@ -397,6 +400,6 @@ class NoSinkParticle(Exception):
 
 def set_RAM_DIR(ram_dir):
     """Set the global variable RAM_DIR. Check Ramses.__init__ for its usage."""
-    
+
     global RAM_DIR
     RAM_DIR = ram_dir

@@ -8,6 +8,8 @@ Attributes:
 
 import os
 import numpy as np
+import matplotlib as mp
+mp.use('Agg')
 import matplotlib.pyplot as plt
 import yt
 from typing import Dict, Any
@@ -342,11 +344,16 @@ class RamPlot(Ramses):
                     y_field=('gas', 'temperature'), z_fields=('gas', 'cell_mass'))
         """
 
+        ytfast.set_data_dir(os.path.join(self.data_dir, 'profiles'))
         if not os.path.exists(figdir):
             os.makedirs(figdir)
         for out in self.get_all_outputs():
+            if not out % 20 == 0:
+                continue
             ds = self.load_ds(out)
-            sph = yt.Sphere(center=center, radius=radius, )
+            sph = ds.sphere(center=center, radius=radius, )
+            timeit.a()
             f, ax, p, cb = ytfast.PhasePlot(sph, **phaseplot_kwargs)
-            figfn = f"{figdir}/{prefix}_{out:03d}.pdf"
-            f.savefig(figfn)
+            timeit.b()
+            figfn = f"{figdir}/{prefix}_{out:03d}.png"
+            f.savefig(figfn, dpi=300)
