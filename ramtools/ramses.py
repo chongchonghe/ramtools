@@ -18,6 +18,10 @@ from . import utilities as util
 from . import units
 
 RAM_DIR = None
+try:
+    yt.set_log_level(50)
+except:
+    pass
 
 class Ramses():
     """This is the core of ramtools. Most of the times, start using ramtools
@@ -356,7 +360,8 @@ Examples
             p.annotate_marker(pos, coord_system='data', plot_args=plot_args)
 
     def overplot_sink_with_id(self, plot, out, center, radius, is_id=True,
-                              colors=cm.Greens, withedge=False):
+                              colors=cm.Greens, withedge=False,
+                              lims=[1e-2, 1e2]):
         """
         Args:
             plot (yt plot): the plot to overplot on
@@ -375,13 +380,11 @@ Examples
         except NoSinkParticle:
             sposs = []
             masses = []
-        lim = [1e-2, 1e2]
-        #colors = cm.Greens
         for i in range(len(masses)):
             if not _is_inside[i]:
                 continue
             m, pos, indice = masses[i], sposs[i], indices[i]
-            mass_scaled = (np.log10(m) - np.log10(lim[0]))/np.log10(lim[1]/lim[0])
+            mass_scaled = (np.log10(m/lims[0]))/np.log10(lims[1]/lims[0])
             plot.annotate_marker(pos, 'o', coord_system='data',
                                  plot_args={'color': colors(mass_scaled),
                                             's':20, 'zorder':i+10,
@@ -391,6 +394,23 @@ Examples
                 plot.annotate_text(pos, str(indices[i]), coord_system='data',
                                    text_args={'color': 'k', 'va': 'center', 'ha': 'center',
                                              'size': 8, 'zorder': i+10+0.5})
+
+    def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left',
+                          **kwargs):
+        """
+        Overplot time tag on top-left corner
+
+        Args:
+            ax:
+            out:
+            timeshift:
+
+        Returns:
+
+        """
+
+        overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc,
+                          **kwargs)
 
 
 class NoSinkParticle(Exception):
@@ -403,3 +423,32 @@ def set_RAM_DIR(ram_dir):
 
     global RAM_DIR
     RAM_DIR = ram_dir
+
+
+def overplot_time_tag(time, ax, loc='upper left', **kwargs):
+    """
+    Overplot time tag on top-left corner
+
+    Args:
+        ax:
+        out:
+        timeshift:
+
+    Returns:
+
+    """
+    if loc == 'upper left':
+        pos = [.05, .95]
+        va, ha = 'top', 'left'
+    elif loc == 'upper right':
+        pos = [.95, .95]
+        va, ha = 'top', 'right'
+    elif loc == 'upper center':
+        pos = [.5, .95]
+        va, ha = 'top', 'center'
+    t = f"t = {time:.1f} Myr"
+    ax.text(*pos, t, va=va, ha=ha, transform=ax.transAxes, **kwargs)
+
+
+def describe_cloud():
+    return

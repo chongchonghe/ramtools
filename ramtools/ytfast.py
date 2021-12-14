@@ -31,6 +31,7 @@ except:
     pass
 
 DATA_DIR = '.'
+GLOBAL_FORCE_REDO = False
 
 def dict_hash(dictionary: Dict[str, Any]) -> str:
     """MD5 hash of a dictionary."""
@@ -44,19 +45,50 @@ def set_data_dir(datadir):
     global DATA_DIR
     DATA_DIR = datadir
 
+def set_global_force_redo(redo=True):
+    global GLOBAL_FORCE_REDO
+    GLOBAL_FORCE_REDO = redo
+
 def to_tuple(x):
     if isinstance(x, list):
         return tuple(x)
     return x
 
+def SlicePlot(*args, **kwargs):
+    pass
+
 def ProjectionPlot(ds, axis, fields, center='c', width=None,
                    axes_unit=None, weight_field=None, max_level=None,
-                   origin='center-window', tag=None, **kwargs):
+                   origin='center-window', tag=None, always_write_h5=False,
+                   **kwargs):
+    """ Same as yt.ProjectionPlot but use intermediate data file to speed up
+    re-generating the same figure.
+
+    Args:
+        ds:
+        axis:
+        fields:
+        center:
+        width:
+        axes_unit:
+        weight_field:
+        max_level:
+        origin:
+        tag (str): a tag to this specific job
+        always_write_h5 (bool): toggle always write a new .h5 data no matter the .h5
+            already exits or not
+        **kwargs: more kwargs passed to yt.ProjectionPlot
+
+    Returns:
+
+    """
 
     if isinstance(axis, int):
-        axis = ['x', 'y', 'z'][axis]
+        axis = {0:'x', 1:'y', 2:'z'}[axis]
+    ds_repr = str(ds.__repr__())
+    assert "RAMSESDataset" in ds_repr, "ds.__repr__() = " + ds_repr
     hash_dict = dict(
-        ds = str(ds.__repr__()),
+        ds = ds_repr,
         axis = axis,
         fields = fields,
         center = to_tuple(center),
@@ -67,9 +99,22 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
         tag = tag,  # a free tag, used to distinguish different versions
     )
     # print(hash_dict)
+    jobdir = '/'.join(ds.parameter_filename.split('/')[:-2])
+    h5new_dir = f"{jobdir}/data_h5"
+    if not os.path.exists(h5new_dir):
+        os.makedirs(h5new_dir)
     hashstr = dict_hash(hash_dict)
-    h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
-    if not os.path.exists(h5fn):
+    h5new = f"{h5new_dir}/{hashstr}.h5"
+    # h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
+    h5fn = h5new
+    # the following is temporary and for my personal use only. Will delete later
+    # --------------- TODO: delete this
+    ramsesdir = os.path.basename(jobdir)
+    h5old = f"{ramsesdir}/{hashstr}.h5"
+    if os.path.exists(h5old) and not os.path.exists(h5new):
+        os.system(f"mv {h5old} {h5new}")
+    # ---------------
+    if always_write_h5 or (not os.path.exists(h5fn)):
         if not os.path.isdir(DATA_DIR):
             os.makedirs(DATA_DIR)
         p = ds.proj(field=fields, axis=axis, center=center,
@@ -77,17 +122,18 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
                     field_parameters={'width': width},
                     )
         p.save_as_dataset(h5fn)
+        jsonfn = h5fn.replace(".h5", ".json")
+        with open(jsonfn, 'w') as fi:
+            json.dump(hash_dict, fi, indent=2)
     else:
         print("Loading", h5fn)
     data = yt.load(h5fn)
     p = yt.ProjectionPlot(data, axis, fields, center=center,
-                          width=width, weight_field=weight_field,
+                          width=width,
+                          # weight_field=weight_field,
                           axes_unit=axes_unit, max_level=max_level,
                           **kwargs)
     return p
-
-def SlicePlot():
-    pass
 
 def PhasePlot(data_source, x_field, y_field, z_fields,
               weight_field=None, x_bins=128, y_bins=128,
@@ -140,18 +186,18 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
     #     units_str = units
 
     t1 = time()
-    hash_params = dict(
+    hash_dict = dict(
         ds = str(data_source.ds.__repr__()),
         data_source = str(data_source.__repr__()),
         x_field = x_field, y_field = y_field, z_fields = z_fields,
         weight_field = weight_field, x_bins=x_bins, y_bins=y_bins,
         extrema = extrema_str, accumulation=accumulation,
     )
-    hashstr = dict_hash(hash_params)
+    hashstr = dict_hash(hash_dict)
     h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
     jsonfn = os.path.join(DATA_DIR, hashstr + ".json")
     if ISLOG: Logger.info(f"Log 1, dt = {time() - t1}")
-    if force_redo or (not os.path.exists(h5fn)):
+    if GLOBAL_FORCE_REDO or force_redo or (not os.path.exists(h5fn)):
         if define_field is not None:
             define_field(data_source.ds)
         assert x_bins == y_bins
@@ -161,9 +207,12 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
                               )
         p.save_as_dataset(h5fn)
         with open(jsonfn, 'w') as fi:
-            json.dump(hash_params, fi, indent=2)
+            json.dump(hash_dict, fi, indent=2)
+        prof = yt.load(h5fn)
+    else:
+        print("Loading from stored h5 data")
+        prof = yt.load(h5fn)
     if ISLOG: Logger.info(f"Log 2, dt = {time() - t1}")
-    prof = yt.load(h5fn)
     if ret == 'data':
         return prof
     if ISLOG: Logger.info(f"Log 3, dt = {time() - t1}")
@@ -204,6 +253,34 @@ def ProfilePlot(data_source, x_field, y_fields, weight_field=('gas', 'mass'),
                 plot_spec=None, x_log=True, y_log=True, xlims=[None, None],
                 force_redo=False, define_field=None, f=None, ax=None,
                 ret='plot', mpl_kwargs={}):
+    """
+    Make 1D profile plot (histogram). Will save intermediate data as h5 files
+    in DATA_DIR. The second time use of this function will be very fast.
+
+    Args:
+        data_source:
+        x_field:
+        y_fields:
+        weight_field:
+        n_bins:
+        accumulation:
+        fractional:
+        label:
+        plot_spec:
+        x_log:
+        y_log:
+        xlims:
+        force_redo:
+        define_field: (function) a function to define a new field.
+            define_field(ds).
+        f: plt.figure
+        ax: plt.axis
+        ret: (str) return type, one of ['plot', 'data']. Default: 'plot'
+        mpl_kwargs: kwargs to plt.plot
+
+    Returns:
+
+    """
 
     hash_params = dict(
         ds = str(data_source.ds.__repr__()),
@@ -226,31 +303,36 @@ def ProfilePlot(data_source, x_field, y_fields, weight_field=('gas', 'mass'),
     hashstr = dict_hash(hash_params)
     h5fn = os.path.join(DATA_DIR, '1dprofile-' + hashstr + ".h5")
     jsonfn = os.path.join(DATA_DIR, '1dprofile-' + hashstr + ".json")
-    if force_redo or (not os.path.exists(h5fn)):
+    if GLOBAL_FORCE_REDO or force_redo or (not os.path.exists(h5fn)):
         print(f"Making {h5fn}")
         if define_field is not None:
             define_field(data_source.ds)
-        p = yt.create_profile(data_source, x_field, y_fields,
+        p = yt.create_profile(data_source, [x_field], y_fields,
                               weight_field=weight_field, n_bins=n_bins,
                               extrema={x_field: xlims}, accumulation=accumulation,
                               fractional=fractional,
                               )
+        # here y_fields is taken a log by default. The stored y values are
+        # log10(y_fields) ???
         p.save_as_dataset(h5fn)
         with open(jsonfn, 'w') as fi:
             json.dump(hash_params, fi, indent=2)
     prof = yt.load(h5fn)
     x = prof.data[x_field]
     y = prof.data[y_fields[0]]
+    # print("x =", x)
+    # print("y =", y)
     if ret == 'data':
         return x, y
     if f is None and ax is None:
         f, ax = plt.subplots()
+    if x_log: x = np.log10(x)
+    if y_log: y = np.log10(y)
     ax.plot(x, y, **mpl_kwargs)
-    if x_log: ax.set_xscale('log')
-    if y_log: ax.set_yscale('log')
     str1 = x_field[1] if isinstance(x_field, tuple) else x_field
     str2 = y_fields[0][1] if isinstance(y_fields[0], tuple) else y_fields[0]
     if x_log: str1 = "log " + str1
     if y_log: str2 = "log " + str2
+    str2 = "log " + str2
     ax.set(xlabel=str1, ylabel=str2)
     return f, ax
