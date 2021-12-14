@@ -1,3 +1,14 @@
+"""
+Run YT functions with cache support so that when a function is run a second
+time, a cache from the first run is used to return the results immediately.
+
+Adapted from Sam Geen's HamuLite.py which describes as 'MODIFIED FROM
+Algorithm.py IN HAMU TO WORK INDEPENDENTLY OF THE HAMU FRAMEWORK'
+
+Original script:
+https://github.com/samgeen/mcrtscripts/blob/master/scripts/HamuLite.py
+"""
+
 import sys, os
 if sys.version_info[0] < 3:
     import cPickle as pik
