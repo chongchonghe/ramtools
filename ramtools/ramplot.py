@@ -9,15 +9,17 @@ Attributes:
 import os
 import logging
 import numpy as np
-import matplotlib as mp
-mp.use('Agg')
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import yt
 from typing import Dict, Any
 import hashlib
 import json
 
-from ramtools import ytfast
+# from ramtools import ytfast
+from . import ytfast, utilities
+from .units import AU
 
 try:
     yt.set_log_level(40)
@@ -26,8 +28,8 @@ except:
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-logger.debug("Debugging is turned on")
-logger.error("Error is turned on")
+# logger.debug("Debugging is turned on")
+# logger.error("Error is turned on")
 
 from .ramses import Ramses
 
@@ -386,6 +388,7 @@ def plot_a_region(
         time_offset='tRelax',
         is_set_size=True,
         is_time=True,
+        streamplot_kwargs={},
         more_kwargs={},
 ):
     """Do projection or slice plots in a region.
@@ -419,12 +422,15 @@ def plot_a_region(
             float: time in Myr
         is_set_size (bool): toggle setting figure size to 6 to make texts
             bigger. Default: True.
+        streamplot_kwargs (dict): More kwargs for plt.streamplot that is used when fields='magstream'. Default: {}
         more_kwargs (dict): more field-specific kwargs. Default: {}
 
     Returns:
         yt figure or plt.figure
 
     """
+
+    from matplotlib import colors
 
     r = ram
     ytfast.set_data_dir(os.path.join(r.ramses_dir, 'h5_data'))
@@ -472,7 +478,7 @@ def plot_a_region(
     elif 'den' in zlims:
         den_zlim = zlims['den']
     else:
-        den_zlim = None
+        den_zlim = [None, None]
     gas_field = fields
     is_log = True
     zlim = None
@@ -641,9 +647,9 @@ def plot_a_region(
             p.set_zlim(gas_field, zlim)
         p.set_colorbar_label(gas_field, cb_label)
         if gas_field == 'density':
-            rt.ramplot.den_setup(p, den_zlim, time_offset=time_offset)
+            den_setup(p, den_zlim, time_offset=time_offset)
         if gas_field == 'temperature':
-            rt.ramplot.T_setup(p, [3, 1e4], time_offset=time_offset)
+            T_setup(p, [3, 1e4], time_offset=time_offset)
 
         if fields == 'vel':
             p.annotate_velocity(factor=30, scale=scale,
@@ -675,7 +681,7 @@ def plot_a_region(
             m_h = 1.6735575e-24
             mu = 1.4
             den = frb['density'].value / (mu * m_h)
-            unitB = rt.utilities.get_unit_B(ds)
+            unitB = utilities.get_unit_B(ds)
             logger.info(f"unitB.value = {unitB.value}")
             Bx = frb['rel_B_1'].value * unitB.value  # Gauss
             By = frb['rel_B_2'].value * unitB.value  # Gauss
@@ -694,7 +700,7 @@ def plot_a_region(
         if 'figax' in more_kwargs.keys():
             fig, ax = more_kwargs['figax']
         else:
-            fig, ax = pt.scaled_figure()
+            fig, ax = plt.subplots()
         im = ax.imshow(np.log10(den), cmap='inferno', extent=bounds_au,
                        vmin=den_zlim[0], vmax=den_zlim[1], origin='lower')
         colornorm_den = colors.Normalize(vmin=den_zlim[0], vmax=den_zlim[1])
@@ -712,18 +718,25 @@ def plot_a_region(
             Bvmin = np.log10(zlims['B'][0])
             Bvmax = np.log10(zlims['B'][1])
         colornorm_stream = colors.Normalize(vmin=Bvmin, vmax=Bvmax)
+        # streamplot_kwargs = {}
+        # if "streamplot" in more_kwargs.keys():
+        #     streamplot_kwargs = more_kwargs["streamplot"]
+        # linewidth = 0.2
+        if "stream_linewidth" in more_kwargs.keys():
+            linewidth = more_kwargs["stream_linewidth"]
         if not sketch:
             logmag = np.log10(Bmag)
             # scaled_mag = (logmag - Bvmin) / (Bvmax - Bvmin)
             strm = ax.streamplot(grid_base, grid_base, Bx, By,
                                  color=np.log10(Bmag),
                                  density=1.2,
-                                 linewidth=0.2,
+                                 # linewidth=linewidth,
                                  # linewidth=1.5 * scaled_mag,
                                  # cmap='Greens',
                                  cmap=cmap,
                                  norm=colornorm_stream,
                                  arrowsize=0.5,
+                                 **streamplot_kwargs,
                                  )
         # plt.subplots_adjust(right=0.8)
         plot_cb = True
