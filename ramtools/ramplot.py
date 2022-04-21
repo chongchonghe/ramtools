@@ -7,6 +7,7 @@ Attributes:
 """
 
 import os
+import logging
 import numpy as np
 import matplotlib as mp
 mp.use('Agg')
@@ -22,6 +23,11 @@ try:
     yt.set_log_level(40)
 except:
     pass
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.debug("Debugging is turned on")
+logger.error("Error is turned on")
 
 from .ramses import Ramses
 
