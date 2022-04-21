@@ -381,8 +381,9 @@ def to_boxlen(quant, ds):
 
             
 def plot_a_region(
-        ram, out, ds, center, center_vel=None, axis='z', L=None, width=None,
-        kind='slc', fields='den', direcs='face',
+        ram, out, ds, center,
+        fields='den', kind='slc', axis='z', width=None,
+        center_vel=None, L=None, direcs='face',
         zlims={}, l_max=None, is_id=False,
         bar_length=2e3, sketch=False,
         time_offset='tRelax',
@@ -398,15 +399,15 @@ def plot_a_region(
         out (int): output frame
         ds (yt.ds): yt.load instance
         center (list_like): the center of the region like in yt.SlicePlot
-        center_vel (list_like or None): the velocity of the center. (Default
-            None)
+        fields (str or tuple): the field to plot. The avaialble options are: 'den' or 'density' - density. 'logden' - log of density. 'T' or 'temperature' - temperature. 'T_vel_rela' - temperature overplot with velocity field. 'pressure' - thermal pressure. 'magstream' - stream lines of magnetic fields on top of density slice. The magnetic strength is be indicated by the color of the stream lines. 'beta' - plasma beta parameter. 'AlfMach' - Alfvenic Mach number. 'xHII' - hydrogen ionization fraction. 'mach' - thermal Mach number. 'mag' - magnetic field strength. 'vel' - velocity field on top of density slice. 'vel_rela' - relative velocity field, i.e. the velocity field in the frame with a velocity defined by center_vel. 'mach2d' - thermal Mach number in the plane. 'p_mag' - magnetic pressure. 
+        kind (str): 'slc' or 'prj'. Default: 'slc'
         axis (str or int): One of (0, 1, 2, 'x', 'y', 'z').
-        L (list_like): the line-of-sight vector. Will overwrite axis.
-            Default: None
         width (float or tuple): width of the field of view. e.g. 0.01,
             (1000, 'AU').
-        kind (str): 'slc' or 'prj'. Default: 'slc'
-        fields (str or tuple): the field to plot. The avaialble options are: 'den' or 'density' - density. 'logden' - log of density. 'T' or 'temperature' - temperature. 'T_vel_rela' - temperature overplot with velocity field. 'pressure' - thermal pressure. 'magstream' - stream lines of magnetic fields on top of density slice. The magnetic strength is be indicated by the color of the stream lines. 'beta' - plasma beta parameter. 'AlfMach' - Alfvenic Mach number. 'xHII' - hydrogen ionization fraction. 'mach' - thermal Mach number. 'mag' - magnetic field strength. 'vel' - velocity field on top of density slice. 'vel_rela' - relative velocity field, i.e. the velocity field in the frame with a velocity defined by center_vel. 'mach2d' - thermal Mach number in the plane. 'p_mag' - magnetic pressure. 
+        center_vel (list_like or None): the velocity of the center. (Default
+            None)
+        L (list_like): the line-of-sight vector. Will overwrite axis.
+            Default: None
         direcs (str): 'face' or 'edge'. Will only be used if L is not None.
         zlims (dict): The limits of the fields. e.g. {'density': [1e4, 1e8]},
             {'B': [1e-5, 1e-2]} (the default of B field).  
