@@ -15,7 +15,6 @@ if sys.version_info[0] < 3:
 else:
     import pickle as pik
 import hashlib
-import warnings
 from collections import OrderedDict
 import yt
 from .utilities import my_yt_load
@@ -26,53 +25,34 @@ except:
 
 CACHEPATH = None
 GLOBALFORCEREPLACECACHE = False
-ISLOG = True
 
 def turn_on_global_force_replace_cache():
     global GLOBALFORCEREPLACECACHE
     GLOBALFORCEREPLACECACHE = True
 
-def turn_off_logging():
-    global ISLOG
-    ISLOG = False
-
-def get_jobdir_and_out_from_ds(ds):
-    """Given ds, which has ds.directory = '/path/Job1/output_00002', return
-    /path/Job1 and output_00002 """
-    outdir = os.path.abspath(ds.directory)
-    jobdir = os.path.dirname(outdir)
-    return jobdir, os.path.basename(outdir)
-
-
 class CacheFile(object):
 
-    def __init__(self, ds, algorithm):
-        self._snapshot = ds  # the absolute path to an output folder
+    def __init__(self, snapshot, algorithm):
+        self._snapshot = snapshot  # the absolute path to an output folder
         self._algorithm = algorithm  # the function to run on this snapshot
-        jobdir, out = get_jobdir_and_out_from_ds(ds)
-        self._folder = f"{jobdir}/cache/cache/yt{yt.__version__}/{out}"
-        if not os.path.exists(self._folder):
-            os.makedirs(self._folder)
-
+        self._folder = snapshot.CachePath()
+    
     def Save(self, data):
         # Save algorithm settings to a text file (for reference)
         pikfile = open(self._Filename("info"),"wb")
         pik.dump(str(self._algorithm),pikfile)
         pikfile.close()
         # Save the output data to a binary file
-        fo = self._Filename("data")
-        pikfile = open(fo, "wb")
+        pikfile = open(self._Filename("data"),"wb")
         pik.dump(data,pikfile)
         pikfile.close()
-        print(f"Saving cache file {fo}.")
         
     def Load(self):
         # Load the (binary) data file
         if self.Exists():
             pikfile = open(self._Filename("data"),"rb")
-            if ISLOG:
-                print("Loading from cache: ds", self._folder,\
-                    self._algorithm.FunctionName(), "...")
+            print("Loading from cache: ds", self._snapshot._outnum,\
+                self._algorithm.FunctionName(), "...")
             try:
                 output = pik.load(pikfile)
             except:
@@ -93,26 +73,63 @@ class CacheFile(object):
         '''
         Cache file's filename
         '''
-        return os.path.join(self._folder, self._algorithm.CacheFilename(ext))
+        return self._folder+self._algorithm.CacheFilename(ext)
 
+class RamsesSnapshot(object):
+
+    def __init__(self,folder,outnum,name=None):
+        self._ds = my_yt_load(folder, outnum) # yt.load with correct FIELDS
+        self._folder = folder
+        self._outnum = outnum
+        self._name = name
+
+    # def _Setup(self):
+    #     if self._ds is None:
+    #         # self._ds = pymses.RamsesOutput(self._folder,self._outnum)
+    #         self._ds = load_ds(self._folder, self._outnum)
+    #         # # Hack to allow nested Algorithm calls
+    #         # self._ds.hamusnap = self
+
+    # def RawData(self):
+    #     self._Setup()
+    #     return self._ds
+
+    # def Name(self):
+    #     return self._name
+
+    def CachePath(self):
+        #if self._name is None:
+        #    pathname = self._ds.output_repos
+        #else:
+        #    pathname = self._name
+        #pathname = pathname.replace("/","__").replace("~","TILDE")
+        #path = "./cache/"+pathname+"/output_"+str(self.OutputNumber()).zfill(5)+"/"
+        if CACHEPATH is not None:
+            pathname = CACHEPATH+"/"+self._folder
+        else:
+            pathname = self._folder
+        # Put the cache files in the simulation folder itself
+        path = f"{pathname}/cache/cache/yt{yt.__version__}/output" \
+               f"_{self._outnum:05d}/"
+        if not os.path.exists(path):
+            try:
+                os.makedirs(path)
+            except:
+                pass # Probably fine. Probably.
+        return path
 
 class CacheRun(object):
     '''
     A wrapper class around a function that enables us to run functions and store their outputs for later use
 
-    Usage (new):
-    >>> def get_max_pos(ds, field):
-    >>>     return ds.all_data().argmax(field)
-    >>> CacheRun(get_max_pos)(ds, ('gas', 'density'))
-
-    Usage (old):
+    Usage:
     >>> ds = RamsesSnapshot("tests/Job2", 40)
     >>> def get_max_pos(ds, field):
     >>>     return ds.all_data().argmax(field)
     >>> CacheRun(get_max_pos)(ds, ('gas', 'density'))
     '''
 
-    def __init__(self, function, force_replace_cache=False):
+    def __init__(self, function):
         '''
         # def __init__(self, function, *args, **kwargs):
         Constructor
@@ -123,7 +140,7 @@ class CacheRun(object):
         self._function = function
         # self._args = args
         # self._kwargs = kwargs
-        self._force_replace_cache = force_replace_cache
+        self._force_replace_cache = False
 
     def ForceReplaceCache(self, on=True):
         self._force_replace_cache = on
@@ -134,45 +151,43 @@ class CacheRun(object):
         '''
         return self._function.__name__
 
-    def Run(self, ds, *args, **kwargs):
+    def Run(self, snap, *args, **kwargs):
         '''
         Run for a single snapshot
         '''
         self._args = args
         self._kwargs = kwargs
         # First, get the cache filename and compare against existing files
-        cache = CacheFile(ds, self)
+        cache = CacheFile(snap, self)
         # Check to see if a cached dataset exists
         if cache.Exists() and not self._force_replace_cache and not GLOBALFORCEREPLACECACHE:
             try:
                 output = cache.Load()
             except EOFError:
                 # If the cache is corrupted, rerun anyway
-                warnings.warn(f"{cache._Filename()} failed to load. Will run the "
-                              f"function explicitly")
-                output = self._RunAlgorithm(ds)
+                output = self._RunAlgorithm(snap)
                 cache.Save(output)
         else:
-            output = self._RunAlgorithm(ds)
+            output = self._RunAlgorithm(snap)
             cache.Save(output)
         return output
 
-    # def Cached(self, snap, *args, **kwargs):
-    #     '''
-    #     Check that the cache for this data exists
-    #     '''
-    #     self._args = args
-    #     self._kwargs = kwargs
-    #     # First, get the cache filename and compare against existing files
-    #     cache = CacheFile(snap, self)
-    #     # Check to see if a cached dataset exists
-    #     return cache.Exists()
+    def Cached(self, snap, *args, **kwargs):
+        '''
+        Check that the cache for this data exists
+        '''
+        self._args = args
+        self._kwargs = kwargs
+        # First, get the cache filename and compare against existing files
+        cache = CacheFile(snap, self)
+        # Check to see if a cached dataset exists
+        return cache.Exists()
 
     def _RunAlgorithm(self, snapshot):
         '''
         Unpack the algorithm and call the native python code
         '''
-        ds = snapshot
+        ds = snapshot._ds
         output = self._function(ds, *self._args, **self._kwargs)
         return output
 
@@ -189,11 +204,11 @@ class CacheRun(object):
         out += "\n"
         return out
 
-    def __call__(self, ds, *args, **kwargs):
+    def __call__(self, snapshot, *args, **kwargs):
         '''
         Allows the algorithm to be called like a function
         '''
-        return self.Run(ds, *args, **kwargs)
+        return self.Run(snapshot, *args, **kwargs)
 
     def CacheFilename(self, ext="data"):
         '''
@@ -203,10 +218,6 @@ class CacheRun(object):
         '''
         objName = self._function.__name__
         hash = hashlib.sha1(str(self._args).encode('utf-8')).hexdigest()
-        # hash += hashlib.sha1(str(self._kwargs).encode('utf-8')).hexdigest()
-        cleaned_kwargs = {ite:(self._kwargs[ite] if not callable(
-            self._kwargs[ite]) else self._kwargs[ite].__name__) for ite in
-                          self._kwargs.keys()}
-        hash += hashlib.sha1(str(cleaned_kwargs).encode('utf-8')).hexdigest()
-        filepre = objName + '-' + hash
+        hash += hashlib.sha1(str(self._kwargs).encode('utf-8')).hexdigest()
+        filepre = objName + hash
         return filepre + "." + ext

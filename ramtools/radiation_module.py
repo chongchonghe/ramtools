@@ -177,7 +177,7 @@ class DustExtinction():
         Z0 = 0.2 if cloud=='SMC' else 0.32
         self.ratioZ = Z / Z0
         cur_dir = os.path.dirname(os.path.realpath(__file__))
-        param = np.loadtxt('{}/../work/dust_params_{}.txt'.format(cur_dir, cloud), delimiter='\t')
+        param = np.loadtxt('{}/data/dust_params_{}.txt'.format(cur_dir, cloud), delimiter='\t')
         self.paraml = param[:, 0]
         self.a = param[:, 1]
         self.b = param[:, 2]

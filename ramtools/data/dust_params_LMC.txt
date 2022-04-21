@@ -1,0 +1,8 @@
+# Parameters for the dust extinction law fits. LMC Dust Model. From Gnedin2008
+0.046	90	90	2	2
+0.08	19	21	4.5	4.5
+0.22	0.023	-1.95	2	2
+9.7	0.005	-1.95	2	2
+18	0.006	-1.8	2	2
+25	0.02	0	2	2
+0.067	10	1.9	4	15

@@ -34,7 +34,7 @@ def dict_hash(dictionary: Dict[str, Any]) -> str:
     return dhash.hexdigest()
 
 def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
-              weight_field=None):
+              weight_field="density"):
     """
     Args:
         p (YT plot):
@@ -51,10 +51,10 @@ def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
     if zlim is not None:
         p.set_zlim(('gas', 'density'), zlim[0], zlim[1])
     # This will change the pixel size of the figure. Be careful!
-    p.set_figure_size(6)
+    # p.set_figure_size(6)
     p.set_cmap(('gas', 'density'), 'inferno')
-    p.annotate_timestamp(time_format='{time:.3f} {units}',
-                         time_offset=time_offset)
+    # p.annotate_timestamp(time_format='{time:.3f} {units}',
+    #                      time_offset=time_offset)
 
 def T_setup(p, zlim=None, time_offset=None):
     if zlim is not None:
@@ -149,9 +149,11 @@ class RamPlot(Ramses):
                 if kind == "slice":
                     if normal is None:
                         pass
-                    p = ds.slice(axis, field, center=center,
-                                field_parameters={'width': width},
-                                )
+                    # p = ds.slice(axis, field, center=center,
+                    #             field_parameters={'width': width},
+                    #             )
+                    p = yt.SlicePlot(ds, axis, field, center=center,
+                                     width=width).data_source
                 elif kind == "projection":
                     if normal is None:
                         p = ds.proj(field=field, axis=axis, center=center,
@@ -169,6 +171,7 @@ class RamPlot(Ramses):
                     warning(f"Unknown kind: {kind}")
                     return
                 p.save_as_dataset(h5fn, ) #fields=[field])
+                print(h5fn, 'saved.')
                 # # option 2, FixedResolutionBuffer
                 # if axis in [2, 'z']:
                 #     bounds = (center[0] - width/2, center[1] - width/2,

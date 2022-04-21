@@ -45,6 +45,18 @@ def fastplot():
     p1.save("t.png")
     print("\nFirst time: ", time() - t1)
 
+    print("\nTesting ytfast.SlicePlot")
+    r = rt.Ramses(jobid=jobid, ram_dir="..")
+    ds = r.load_ds(1)
+    t1 = time()
+    p = ytfast.SlicePlot(ds, 'x', ('gas', 'density'), width=0.2)
+    p.save('f1.png')
+    print("\ntime:", time() - t1)
+    t1 = time()
+    p = ytfast.SlicePlot(ds, 'x', ('gas', 'density'), width=0.2)
+    p.save('f2.png')
+    print("\ntime:", time() - t1)
+
 def fastplot_phase():
     from ramtools import ytfast
     ytfast.set_data_dir("./tests/h5_data")
@@ -89,44 +101,45 @@ def plot():
     print("\nSecond time: ", time() - t1)
     # print(rp.get_time(1))
 
-def cloud_values():
-    from ramtools import hash2
-    print("start")
-    # rp = rt.Ramses("tests/Job2")
-    # for pot_ref in ['bottom_left', 'bottom_right', 'max']:
-    #     ret = rt.ramses.get_cloud_values(rp.jobPath, 40, ['kin_ene', 'pot_ene'],
-    #                                      pot_ref=pot_ref, pot_test_width=2**-7)
-    #     print(ret)
-    snap = hash2.RamsesSnapshot("tests/Job2", 40)
-    rets = []
-    for pot_ref in ['bottom_left', 'bottom_right', 'max']:
-        ret = hash2.HashRun(rt.ramses.get_cloud_values)(
-            snap, ['kin_ene', 'pot_ene'], pot_ref=pot_ref, pot_test_width=2**-7)
-        rets.append(ret)
-    print(rets)
-    print("Are they close?")
-
-    # Will to work. Can't pickle local object 'PlotWindow'
-    # # def proj_ad_wrapper(ds, *args, **kwargs):
-    # #     return yt.ProjectionPlot(ds.all_data(), *args, **kwargs)
-    # p = hash2.HashRun(yt.ProjectionPlot).Run(
-    #     snap, 'x', ('gas', 'density'))
-    # p.save('t.png')
-
-def hash():
-    # try hash2.py
-    from ramtools import hash2
-    snap = hash2.RamsesSnapshot("tests/Job2", 40)
-    def get_max_pos(ds, _x):
-        return ds.all_data().argmax('density'), _x
-    print("First run")
+def cacherun():
+    from ramtools import cacherun
+    def get_max_pos(ds, field):
+        return ds.all_data().argmax(field)
+    # snap = cacherun.RamsesSnapshot("tests/Job2", 40)
+    # t1 = time()
+    # print(cacherun.CacheRun(get_max_pos).Run(snap, 'density'))
+    # print("First run, time: ", time() - t1)
+    # t1 = time()
+    # print(cacherun.CacheRun(get_max_pos).Run(snap, 'density'))
+    # print("Second run, time: ", time() - t1)
+    ds = cacherun.my_yt_load("tests/Job2", 40)
     t1 = time()
-    print(hash2.HashRun(get_max_pos).Run(snap, 111))
-    print("time: ", time() - t1)
-    print("Second run")
+    print(cacherun.CacheRun(get_max_pos).Run(ds, 'density'))
+    print("First run, time: ", time() - t1)
     t1 = time()
-    print(hash2.HashRun(get_max_pos).Run(snap, 111))
-    print("time: ", time() - t1)
+    print(cacherun.CacheRun(get_max_pos).Run(ds, 'density'))
+    print("Second run, time: ", time() - t1)
+
+def cacherun_base():
+    from ramtools.cacherunbase import CacheRun
+    import time
+    print('start')
+    def func1(x, y=1):
+        time.sleep(2)
+        return x + y
+    print('first call:', func1(10, y=2))
+    print('second call:', CacheRun(func1, os.path.abspath(__file__), flag='in1')(10, y=2))
+
+def cacherun_base2():
+    from ramtools.cacherunbase import CacheRun
+    import time
+    print('start')
+    def func1(x, y=1):
+        time.sleep(2)
+        return x * x + y
+    print('first call:', func1(10, y=2))
+    print('second call:', CacheRun(func1, os.path.abspath(__file__), flag='in2')(10, y=2))
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:

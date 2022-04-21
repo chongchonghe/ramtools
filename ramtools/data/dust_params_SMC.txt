@@ -1,0 +1,8 @@
+# Parameters for the dust extinction law fits. SMC Dust Model. From Gnedin2008
+0.042	185	90	2	2
+0.08	27	15.5	4	4
+0.22	0.005	-1.95	2	2
+9.7	0.010	-1.95	2	2
+18	0.012	-1.8	2	2
+25	0.030	0	2	2
+0.067	10	1.9	4	15

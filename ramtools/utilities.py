@@ -15,6 +15,10 @@ def mass_to_temp(mass):
         lumino = 0.75 * mass**4.8
     return 5777 * (lumino / radius**2)**(0.25)
 
+def mass_to_radius(mass):
+    """ Input: mass (Msun); output: stellar radius (Rsun) """
+    return 1.06 * mass**0.945 if mass < 1.66 else 1.33 * mass**0.555
+
 TLIM = [mass_to_temp(10 ** -1), mass_to_temp(10 ** 3)]
 
 def my_yt_load(job_path, out):
@@ -23,7 +27,7 @@ def my_yt_load(job_path, out):
     Args:
         job_path (str): path to a job directory
         out (int): the output frame you want to load
-    
+
     Usage:
     >>> ds = my_yt_load("tests/Job1", 1)
 
@@ -54,7 +58,7 @@ def get_times_from_movie1(movie_dir):
     info_fn_fmt = movie_dir + "/info_{:05d}.txt"
     data = {}
     for i in range(5000):
-        fn = sink_fn_fmt.format(i)
+        fn = info_fn_fmt.format(i)
         if not os.path.isfile(fn):
             continue
         with open(fn, 'r') as f:
@@ -114,29 +118,29 @@ def get_sink_info_from_movie1(movie_dir, sinkid):
 
 def get_sink_mass_from_movie1_for_all_sinks(movie_dir):
     """ Get the times and sink masses of all sink particles from movie files
-    
+
     Args:
         movie_dir (str): path to movie1
 
     Returns:
         A tuple of 3: (outs, times, masses)
 
-        outs (list of int): length n list storing the movie frame indices. 
-            n is the number of movie frames that has sink information. 
-        times (list of float): length n list storing the times (in code unit) 
+        outs (list of int): length n list storing the movie frame indices.
+            n is the number of movie frames that has sink information.
+        times (list of float): length n list storing the times (in code unit)
             of the movie frames
-        masses (array of float): (m, n) array storing the masses of all sink 
-            particles over time. m is the number of total sink particles 
-            in the last movie file. For instance, masses[3] is a list of the 
-            masses of sink particle #3 (starting from 0) over `times`. 
-    
+        masses (array of float): (m, n) array storing the masses of all sink
+            particles over time. m is the number of total sink particles
+            in the last movie file. For instance, masses[3] is a list of the
+            masses of sink particle #3 (starting from 0) over `times`.
+
     Usage:
 
     >>> outs, times, masses = get_sink_mass_from_movie1_for_all_sinks("tests/Job1/movie1")
     >>> plt.plot(times, masses[0])    # plot the mass of sink #0 over time
 
     """
-    
+
     sink_fn_fmt = movie_dir + "/sink_{:05d}.txt"
     info_fn_fmt = movie_dir + "/info_{:05d}.txt"
     outs = []
@@ -176,10 +180,10 @@ def get_sink_mass_from_movie1_for_all_sinks(movie_dir):
 
 def get_unit_B(ds):
     """ Get the unit of B field strength
-    
+
     :math:`1 \ \mathrm{Gauss} = \sqrt{{g} / {cm}} / s, u_B = B^2 / 8 \pi`
 
-    Return: 
+    Return:
         YT.unit: the unit of B in cgs units
     """
 

@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+"""
+TO BE FINISHED!
+"""
+
+from ramtoolas import FIELDS
+from ramtools import Ramses, quick_plot_prj
+
+jobdir = "Job2.2.2.v2"
+field = ('gas', 'density')
+out = 20
+axis = 2
+fo = f"plots/projections/prj-den-{jobdir}-out{out}.png"
+
+r = Ramses(jobdir)
+ds = r.load_ds(out)
+sinks = r.get_sink_positions(out)
+p = quick_plot_prj(ds, sinks, field, axis, use_h5=0)
+p.set_zlim(('gas', 'density'), 1e0, 1e6)
+p.save(fo, mpl_kwargs=dict(dpi=300))
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="what the program does")
+    parser.add_argument(dest='jobdir', type=str, help="path to job directory")
+    parser.add_argument('out', type=int, nargs=1, help="frame number")
+    parser.add_argument('kind', type=str, help="what kind of figure to plot")
+    parser.add_argument('-s', '--sink', action="store_true")
+    parser.add_argument('-f', '--field', default='den', help="field to plot")
+    parser.add_argument('-a', '--axis', default="2",
+                        help="axis, one of 0, 1, 2 or x, y z")
+    parser.add_argument('-w', '--width', type=float, help="width of view")
+    parser.add_argument('-c', '--center', type=float, nargs='+',
+                        help="center of view")
+    parser.add_argument('-o', type=str, help="output path")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    arg = parse_args()
+    ds = yt.load(f"{arg.jobdir}/output_{arg.out:05d}/info_{arg.out:05d}.txt",
+                 fields=FIELDS)
+    if arg.field in ['den', 'density']:
+        arg.field = ("gas", "density")
+    elif not isinstance(arg.field, tuple):
+        arg.field = ('gas', arg.field)
+    if arg.center is None:
+        arg.center = 'c'
+    if par.kind in ['projection', 'prj']:
+        ProjectionPlot(
+            ds,
+            axis=arg.axis,
+            fields=arg.field,
+            center=arg.center,
+            width=arg.width,
+            weight_field=('gas', 'density')
+        )

@@ -15,7 +15,8 @@ from glob import glob
 import f90nml
 import yt
 from . import utilities as util
-from . import units
+from . import units, center
+from .utilities import my_yt_load
 
 RAM_DIR = None
 try:
@@ -59,6 +60,7 @@ Examples
 
         if jobdir is not None:
             self.jobPath = jobdir
+            self.jobid = os.path.basename(jobdir)[3:]
         elif jobid is None:
             warnings("Need to specify either jobdir or jobid")
             return
@@ -72,6 +74,7 @@ Examples
                 else:
                     ram_dir = RAM_DIR
             self.jobPath = f"{ram_dir}/Job{jobid}"
+            self.jobid = jobid
         self.ds1 = None
         if self.get_units() == 0:
             self.tRelax = self.get_trelax()
@@ -360,7 +363,7 @@ Examples
             p.annotate_marker(pos, coord_system='data', plot_args=plot_args)
 
     def overplot_sink_with_id(self, plot, out, center, radius, is_id=True,
-                              colors=cm.Greens, withedge=False,
+                              colors=cm.Greens, withedge=False, zorder='time',
                               lims=[1e-2, 1e2]):
         """
         Args:
@@ -369,6 +372,8 @@ Examples
             center (tuple or list): the center of the plot in boxlen units
             radius (float): the radius (half width) of the box around
                 the center defining the domain of interest, in boxlen units
+            weight (str): give weights to the annotates of the sink particles
+                by the 'time' of creation, or by their 'mass'
 
         """
 
@@ -385,33 +390,74 @@ Examples
                 continue
             m, pos, indice = masses[i], sposs[i], indices[i]
             mass_scaled = (np.log10(m/lims[0]))/np.log10(lims[1]/lims[0])
-            plot.annotate_marker(pos, 'o', coord_system='data',
-                                 plot_args={'color': colors(mass_scaled),
-                                            's':20, 'zorder':i+10,
-                                            'linewidths': 0.8,
-                                            'edgecolors': 'k' if withedge else 'face'})
+            if mass_scaled > 1.:
+                mass_scaled = 1.
+            if mass_scaled < 0.:
+                mass_scaled = 0.
+            # print(f"mass_scaled={mass_scaled}")
+            zo = {'time': i + 10, 'mass': m + 10}[zorder]
+            plot.annotate_marker(
+                pos, 'o', coord_system='data',
+                plot_args={'color': colors(mass_scaled),
+                           's': 30,
+                           'zorder': zo,
+                           'linewidths': 0.3,
+                           'edgecolors': 'k' if withedge else 'face'})
             if is_id:
                 plot.annotate_text(pos, str(indices[i]), coord_system='data',
                                    text_args={'color': 'k', 'va': 'center', 'ha': 'center',
                                              'size': 8, 'zorder': i+10+0.5})
 
-    def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left',
-                          **kwargs):
-        """
-        Overplot time tag on top-left corner
+    # def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left',
+    #                       **kwargs):
+    #     """
+    #     Overplot time tag on top-left corner
+    #
+    #     Args:
+    #         ax:
+    #         out:
+    #         timeshift:
+    #
+    #     Returns:
+    #
+    #     """
+    #
+    #     overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc,
+    #                       **kwargs)
 
-        Args:
-            ax:
-            out:
-            timeshift:
+    def get_out_after(self, t):
+        """Get the out number right after a give time t (Myr) """
+        is_first_existing = True
+        for i in self.get_all_outputs():
+            if self.get_time(i) > t:
+                return i, is_first_existing
+            is_first_existing = False
+        return None, is_first_existing
 
-        Returns:
+    def get_gas_mass(self):
+        nml = f90nml.read(self.jobPath + "/run.sink.nml")
+        return nml['CLOUD_PARAMS']['mass_c']
 
-        """
+    def get_gas_peak_density(self):
+        try:
+            return center.GAS_DENSITIES[self.jobid[0]]
+        except KeyError:
+            return -1
 
-        overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc,
-                          **kwargs)
+    def movie_sink_path(self, num):
+        return "{}/movie1/sink_{:05d}.txt".format(self.jobPath, num)
 
+    def read_movie_sink_as_particle(self, num):
+        fp = self.movie_sink_path(num)
+        if not os.path.isfile(fp):
+            raise FileNotFoundError
+        with open(fp, 'r') as f:
+            if not os.fstat(f.fileno()).st_size:
+                raise NoSinkParticle
+        data = np.loadtxt(fp, delimiter=',')
+        if data.ndim == 1:
+            data = np.array([data])
+        return data[:, 1:8]
 
 class NoSinkParticle(Exception):
     """exception: no sink particle found in an output or a .csv file."""
@@ -424,31 +470,3 @@ def set_RAM_DIR(ram_dir):
     global RAM_DIR
     RAM_DIR = ram_dir
 
-
-def overplot_time_tag(time, ax, loc='upper left', **kwargs):
-    """
-    Overplot time tag on top-left corner
-
-    Args:
-        ax:
-        out:
-        timeshift:
-
-    Returns:
-
-    """
-    if loc == 'upper left':
-        pos = [.05, .95]
-        va, ha = 'top', 'left'
-    elif loc == 'upper right':
-        pos = [.95, .95]
-        va, ha = 'top', 'right'
-    elif loc == 'upper center':
-        pos = [.5, .95]
-        va, ha = 'top', 'center'
-    t = f"t = {time:.1f} Myr"
-    ax.text(*pos, t, va=va, ha=ha, transform=ax.transAxes, **kwargs)
-
-
-def describe_cloud():
-    return

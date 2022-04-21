@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+
+import os
+import yt
+import numpy as np
+import matplotlib.pyplot as plt
+import argparse
+from ramtools import ytfast, Ramses, plotutils
+
+plt.style.use(['science', 'no-latex'])
+
+def get_args():
+    args = argparse.ArgumentParser()
+    args.add_argument("jobdir", help="job directory")
+    args.add_argument("outs", default=None,
+                      help="output indices. If None, do all output "
+                           "frames. Default: None.")
+    args.add_argument("axes", help="axis, eg1: x, eg2: x,y,z")
+    args.add_argument("-c", "--center", default='c',
+                      help="center in boxlen unit")
+    args.add_argument("-w", "--width", default='1',
+                      help="width, eg: 0.5, 1000 AU")
+    args.add_argument("-f", "--fields", default='den',
+                      help="fields, eg: den, den,temp")
+    args.add_argument("-t", "--to", default='.', help="destination directory")
+    args.add_argument("-k", "--kinds", default='slc',
+                      help="plot types, eg prj, prj,slc")
+    return args.parse_args()
+
+def main(args):
+    # print(args)
+    # return
+    r = Ramses(args.jobdir)
+    if args.outs is None:
+        outs = r.get_all_outputs()
+    else:
+        if '-' in args.outs:
+            splits = [int(i) for i in args.outs.split('-')]
+            if len(splits) == 2:
+                outi, outf = splits
+                outs = range(outi, outf + 1)
+            elif len(splits) == 3:
+                outi, outf, diff = splits
+                outs = range(outi, outf + 1, diff)
+        else:
+            outs = [int(i) for i in args.outs.split(',')]
+    if ',' in args.center:
+        center = [float(i) for i in args.center.split(',')]
+    else:
+        center = args.center
+    if ',' in args.width:
+        p1, p2 = args.width.split(',')
+        width = (float(p1), p2)
+    else:
+        width = float(args.width)
+    os.makedirs(args.to, exist_ok=1)
+    for out in outs:
+        ds = r.load_ds(out)
+        for field in args.fields.split(','):
+            if field == "den":
+                field = "density"
+            if field in ["tem", "temp"]:
+                field = "temperature"
+            thefield = ('gas', field)
+            for axis in args.axes.split(','):
+                for kind in args.kinds.split(','):
+                    if kind == 'slc':
+                        thefunc = ytfast.SlicePlot
+                        p = thefunc(ds, axis, thefield, center=center, width=width)
+                    elif kind == 'prj':
+                        thefunc = ytfast.ProjectionPlot
+                        p = thefunc(ds, axis, thefield, center=center, width=width,
+                                    weight_field=('gas', 'density'))
+                    if field == 'density':
+                        plotutils.den_setup(p)
+                    fo = f"{kind}-{axis}-{field}-out{out}.png"
+                    p.save((args.to, fo), mpl_kwargs={"dpi": 300})
+                    plt.close('all')
+
+if __name__ == '__main__':
+    main(get_args())

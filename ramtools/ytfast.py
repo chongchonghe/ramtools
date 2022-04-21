@@ -14,6 +14,9 @@ from typing import Dict, Any
 import hashlib
 import json
 from time import time
+import argparse
+
+from .cacherun import CacheRun
 
 try:
     import logging
@@ -54,12 +57,99 @@ def to_tuple(x):
         return tuple(x)
     return x
 
-def SlicePlot(*args, **kwargs):
-    pass
+def get_jobdir_and_out_from_ds(ds):
+    """Given ds, which has ds.directory = '/path/Job1/output_00002', return
+    /path/Job1 and output_00002 """
+    outdir = os.path.abspath(ds.directory)
+    jobdir = os.path.dirname(outdir)
+    return jobdir, os.path.basename(outdir)
+
+def hash_path(ds, hash_dict, kind=None):
+    jobdir, outname = get_jobdir_and_out_from_ds(ds)
+    jobpath = jobdir
+    h5new_dir = f"{jobpath}/cache/ytfast/yt{yt.__version__}/{outname}"
+    os.makedirs(h5new_dir, exist_ok=True)
+    hashstr = dict_hash(hash_dict)
+    if kind is not None:
+        hashstr = kind + '-' + hashstr
+    h5new = f"{h5new_dir}/{hashstr}.h5"
+    # make json file if not existing
+    jsonfn = h5new.replace(".h5", ".json")
+    if not os.path.exists(jsonfn):
+        with open(jsonfn, 'w') as fi:
+            json.dump(hash_dict, fi, indent=2)
+    return h5new
+
+def SlicePlot(ds, normal=None, fields=None, zlim=None, *args, **kwargs):
+
+    # --- hash
+    if isinstance(normal, int):
+        normal = {0:'x', 1:'y', 2:'z'}[normal]
+    # ds_repr = str(ds.__repr__())
+    # assert "RAMSESDataset" in ds_repr, "ds.__repr__() = " + ds_repr
+    ds_repr = os.path.abspath(ds.directory)
+    hash_dict = dict(
+        ds=ds_repr,
+        normal=normal,
+        fields=fields,
+        kind="SlicePlot",
+    )
+    if 'center' in kwargs.keys():
+        if isinstance(kwargs['center'], np.ndarray):
+            hash_dict['center'] = kwargs['center'].tolist()
+        else:
+            hash_dict['center'] = kwargs['center']
+    if 'width' in kwargs.keys():
+        if isinstance(kwargs['width'], np.ndarray):
+            hash_dict['width'] = kwargs['width'].tolist()
+        else:
+            hash_dict['width'] = kwargs['width']
+    if zlim is not None:
+        hash_dict['zlim'] = zlim
+    h5fn = hash_path(ds, hash_dict, kind='SlicePlot')
+
+    if GLOBAL_FORCE_REDO or (not os.path.exists(h5fn)):
+        p = yt.SlicePlot(ds, normal, fields, *args, **kwargs)
+        if zlim is not None:
+            p.set_zlim(fields, *zlim)
+        p.data_source.save_as_dataset(h5fn)
+    else:
+        print("Loading", h5fn)
+    data = yt.load(h5fn)
+    return yt.SlicePlot(data, normal, fields, *args, **kwargs)
+
+def SlicePlot_cacherun(ds, *args, **kwargs):
+    # ds = RamsesSnapshot(jobdir, out)
+
+    def slice_ds(ds, *args, **kwargs):
+        return yt.SlicePlot(ds, *args, **kwargs).data_source
+
+    class T:
+        def __init__(self, _ds):
+            self._ds = _ds
+            self._folder = os.path.dirname(_ds.directory)
+            self._outnum = int(os.path.basename(_ds.directory)[-5:])
+        def CachePath(self):
+            pathname = self._folder
+            # Put the cache files in the simulation folder itself
+            path = f"{pathname}/cache/cache/yt{yt.__version__}/output" \
+                   f"_{self._outnum:05d}/"
+            if not os.path.exists(path):
+                try:
+                    os.makedirs(path)
+                except:
+                    pass # Probably fine. Probably.
+            return path
+
+    fakesnap = T(ds)
+    # new_ds = slice_ds(ds, *args, **kwargs)
+    new_ds = CacheRun(slice_ds)(fakesnap, *args, **kwargs)
+    return yt.SlicePlot(ds, *args, **kwargs, data_source=new_ds)
 
 def ProjectionPlot(ds, axis, fields, center='c', width=None,
                    axes_unit=None, weight_field=None, max_level=None,
                    origin='center-window', tag=None, always_write_h5=False,
+                   force_redo=False,
                    **kwargs):
     """ Same as yt.ProjectionPlot but use intermediate data file to speed up
     re-generating the same figure.
@@ -86,7 +176,11 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     if isinstance(axis, int):
         axis = {0:'x', 1:'y', 2:'z'}[axis]
     ds_repr = str(ds.__repr__())
-    assert "RAMSESDataset" in ds_repr, "ds.__repr__() = " + ds_repr
+    # assert "RAMSESDataset" in ds_repr, "ds.__repr__() = " + ds_repr
+    if isinstance(axis, np.ndarray):
+        axis = axis.tolist()
+    if isinstance(center, np.ndarray):
+        center = center.tolist()
     hash_dict = dict(
         ds = ds_repr,
         axis = axis,
@@ -100,7 +194,8 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     )
     # print(hash_dict)
     jobdir = '/'.join(ds.parameter_filename.split('/')[:-2])
-    h5new_dir = f"{jobdir}/data_h5"
+    # h5new_dir = f"{jobdir}/data_h5"
+    h5new_dir = f"{jobdir}/cache/ytfast/{yt.__version__}"
     if not os.path.exists(h5new_dir):
         os.makedirs(h5new_dir)
     hashstr = dict_hash(hash_dict)
@@ -114,9 +209,9 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     if os.path.exists(h5old) and not os.path.exists(h5new):
         os.system(f"mv {h5old} {h5new}")
     # ---------------
-    if always_write_h5 or (not os.path.exists(h5fn)):
-        if not os.path.isdir(DATA_DIR):
-            os.makedirs(DATA_DIR)
+    if always_write_h5 or force_redo or (not os.path.exists(h5fn)):
+        # if not os.path.isdir(DATA_DIR):
+        #     os.makedirs(DATA_DIR)
         p = ds.proj(field=fields, axis=axis, center=center,
                     weight_field=weight_field,
                     field_parameters={'width': width},
@@ -141,7 +236,8 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
               figure_size=8.0, shading='nearest', extrema=None,
               units=None, zlims=None, force_redo=False,
               define_field=None, is_cb=True, cmap="viridis",
-              cb_label='', f=None, ax=None, ret='imshow',):
+              cb_label='', f=None, ax=None, ret='imshow',
+              is_pcc=False,):
     """
 
     Args:
@@ -193,6 +289,8 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
         weight_field = weight_field, x_bins=x_bins, y_bins=y_bins,
         extrema = extrema_str, accumulation=accumulation,
     )
+    if is_pcc:
+        hash_dict["is_pcc"] = True
     hashstr = dict_hash(hash_dict)
     h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
     jsonfn = os.path.join(DATA_DIR, hashstr + ".json")
@@ -205,6 +303,11 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
                               z_fields, weight_field=weight_field,
                               extrema=extrema, n_bins=x_bins,
                               )
+        if is_pcc and x_field in ["density", ("gas", "density")]:
+            mu = 1.4
+            p.set_unit(x_field, 'cm**-3',
+                       equivalency='number_density',
+                       equivalency_kwargs={'mu': mu})
         p.save_as_dataset(h5fn)
         with open(jsonfn, 'w') as fi:
             json.dump(hash_dict, fi, indent=2)
@@ -336,3 +439,4 @@ def ProfilePlot(data_source, x_field, y_fields, weight_field=('gas', 'mass'),
     str2 = "log " + str2
     ax.set(xlabel=str1, ylabel=str2)
     return f, ax
+

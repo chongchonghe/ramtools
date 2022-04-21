@@ -24,3 +24,17 @@ JOBNAMES = {
 }
 
 unit_lum = 1e44 # 1e44 ergs/s
+
+GAS_DENSITIES = {'2': 9.38e3, '3': 9.38e4, '4': 9.38e2}
+TFFS = {'2': 1.389, '4': 4.393, '3': 0.439, '6': 0.439, '1': 1.389}
+
+def get_density(jobid):
+    if jobid not in JOBNAMES.keys():
+        return None
+    return GAS_DENSITIES[jobid[0]]
+
+def get_tff(jobid):
+    if jobid not in JOBNAMES.keys():
+        return None
+    return TFFS[jobid[0]]
+

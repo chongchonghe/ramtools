@@ -16,6 +16,10 @@ from .ramses import Ramses, NoSinkParticle
 # from ramses.py
 
 def plot_step_func(ax, n, bins, **kwargs):
+    """
+    Accurate and precise. The bins are representing the value between the
+    pivots.
+    """
 
     n = [n[0]] + n.tolist()
     ax.step(bins, n, **kwargs)
@@ -78,7 +82,9 @@ def plot_imf(ax, mass, bins=None, xlim=[-2, 2], ylim=[0.7, 3.3e2],
         text = r"$m_{{\rm tot}} = {:.3g}$".format(np.sum(mass))
         text += "\n"
         text += "$N = {}$".format(len(mass))
-        ax.text(0.98, 0.98, text, va='top', ha='right', color='k', #fontsize='small',
+        ax.text(0.98, 0.98, text, va='top', ha='right',
+                # color='k',
+                #fontsize='small',
                 transform=ax.transAxes)
 
 def imf(mass, ax=None, **kwargs):
@@ -126,7 +132,6 @@ def plot_imf_N_vs_m(ax, m, color='k', istext=True, bin_width=None, bins=None):
     if not istext:
         return
     return
-
 
 # sink (from sink.py)
 def get_bins(mass, maxBins=None, m_min=0.1):
@@ -229,6 +234,7 @@ def overplot_kroupa_new(self, ax, m_sum, m_min=0.08, m_max=100, textxy=None,
     self is useless. I put INTERP here for INTERP to be copied in the Sink class
     """
 
+    print("here 23")
     def kroupa_lin(m):
         if m < 0.5:
             return m**(-1.3) * m
@@ -250,6 +256,7 @@ def overplot_kroupa_new(self, ax, m_sum, m_min=0.08, m_max=100, textxy=None,
     dNdlogm = np.array([kroupa_log(m) for m in masses])
     x = masses if not isxloged else np.log10(masses)
     ax.plot(x, scale * dNdlogm, ls=ls, **kwargs)
+    print("x =", x, "y =", scale * dNdlogm)
     if textxy is not None:
         ax.text(10**textxy[0], 10**textxy[1], "Kroupa single",
                 **kwargs)
@@ -857,17 +864,23 @@ class Sink(Ramses):
 
         return
 
-    def quick_plot_IMF(self, ax=None, out=None, bin_width=None, bins=None,
-                       is_over_dlogm=False):
+    def quick_plot_IMF(self, ax=None, out=None, masses=None, bin_width=None,
+                       bins=None, is_over_dlogm=False, shift=None,
+                       is_kroupa=False, kroupa_kwargs={}, **kwargs):
 
         if out is None:
             out = self.get_last_output()
-        try:
-            m = self.get_sink_masses(out)
-        except NoSinkParticle:
-            m = []
-        except FileNotFoundError:
-            return
+        if masses is None:
+            try:
+                m_orig = self.get_sink_masses(out)
+            except NoSinkParticle:
+                m_orig = []
+            except FileNotFoundError:
+                return
+        else:
+            m_orig = masses
+        if shift is not None:
+            m = np.array(m_orig) * shift
         is_ret = False
         if ax is None:
             is_ret = True
@@ -875,13 +888,18 @@ class Sink(Ramses):
         # plot_imf_N_vs_m(ax, m, color='k', bin_width=bin_width, bins=bins)
         if bin_width is not None:
             bins = 10**np.arange(-2, 3.1, bin_width)
-        plot_imf(ax, m, bins=bins, is_over_dlogm=is_over_dlogm, color='k', )
+        plot_imf(ax, m, bins=bins, is_over_dlogm=is_over_dlogm, **kwargs)
 
         # write time and outputid tag
         text = "t = {:.3g} Myr".format(self.get_time(out, readinfo=True))
         ax.text(0.02, 0.98, text, va='top', transform=ax.transAxes)
-        ax.set_title('Job' + self.jobid)
-        utilities.add_out_tag(ax, out)
+        # ax.set_title('Job' + self.jobid)
+        # utilities.add_out_tag(ax, out)
+
+        if is_kroupa: # overplot Kroupa IMF
+            overplot_kroupa_new(None, ax, np.sum(m_orig), color='k',
+                                isxloged=True, m_max=1000, **kroupa_kwargs,
+                                )
         if is_ret:
             return f, ax
 
