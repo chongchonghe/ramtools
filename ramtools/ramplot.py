@@ -363,9 +363,17 @@ class RamPlot(Ramses):
             figfn = f"{figdir}/{prefix}_{out:03d}.png"
             f.savefig(figfn, dpi=300)
 
+
+
+def to_boxlen(quant, ds):
+    if type(quant) == tuple:
+        return float(yt.YTQuantity(*quant) / ds.length_unit)
+    else:
+        return quant
+
             
 def plot_a_region(
-        ram, out, ds, center, center_vel=None, axis=None, L=None, width=None,
+        ram, out, ds, center, center_vel=None, axis='z', L=None, width=None,
         kind='slc', fields='den', direcs='face',
         zlims={}, l_max=None, is_id=False,
         bar_length=2e3, sketch=False,
