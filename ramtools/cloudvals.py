@@ -9,8 +9,8 @@ import yt
 import matplotlib.pyplot as plt
 import argparse
 from yt.units import erg
-from .ramses import Ramses
-from .plotutils import quick_plot_prj, den_setup
+from ramses import Ramses
+from plotutils import quick_plot_prj, den_setup
 
 # yt.enable_parallelism()
 

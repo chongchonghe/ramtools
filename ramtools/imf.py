@@ -646,7 +646,7 @@ class Sink(Ramses):
         return
 
     def MassFunc(self, ax=None, bins='auto', outputID=None, tff=None,
-                 is_x_log_number=False, is_plot_kroupa=False, isFill=False, label=None, plotstyle={}):
+                 is_x_log_number=False, is_plot_kroupa=False, isFill=False, newsink=False, label=None, plotstyle={}):
         """
         Plot the mass function
         kwargs could be: refPoint = [x_start, x_end], bin_max, bin_min,
@@ -681,6 +681,13 @@ class Sink(Ramses):
         #     return 0
         try:
             mass = self.get_sink_masses(outputID)
+            print(mass.shape)
+            if newsink:
+#                mass_before = self.get_sink_masses(outputID-5)
+                mass_before = self.get_sink_masses(24)
+                print(mass_before.shape[0])
+                mass = mass[mass_before.shape[0]:]
+                print(mass*MASS_SHIFT)
         except NoSinkParticle:
             return 0
         mass *= MASS_SHIFT

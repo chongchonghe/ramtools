@@ -98,7 +98,7 @@ def get_sink_info_from_movie1(movie_dir, sinkid):
             num_lines = len(f.readlines())
         if num_lines - 1 < sinkid:
             continue
-        pars_new = np.loadtxt(fn, delimiter=',')
+        pars_new = np.loadtxt(fn, delimiter=',', usecols = (0,1,2,3,4,5,6,7,8))
         if pars_new.ndim == 1:
             pars_new = np.array([pars_new])
         parnew = pars_new[sinkid, :]
