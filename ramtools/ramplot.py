@@ -20,6 +20,7 @@ import json
 # from ramtools import ytfast
 from . import ytfast, utilities
 from .units import AU
+from .plotutils import T_setup, den_setup
 
 try:
     yt.set_log_level(40)
@@ -41,37 +42,6 @@ def dict_hash(dictionary: Dict[str, Any]) -> str:
     dhash.update(encoded)
     return dhash.hexdigest()
 
-
-def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
-              weight_field="density"):
-    """
-    Args:
-        p (YT plot):
-        zlim (tuple): limits of the field
-        mu (float): the mean particle weight. The mass density rho = mu * n
-        quant (str): 'volume' or 'column' for volumetric and column density
-    """
-
-    if unit == 'number_density':
-        if weight_field == "density":
-            p.set_unit(('gas', 'density'), 'cm**-3',
-                    equivalency='number_density',
-                    equivalency_kwargs={'mu': mu})
-    if zlim is not None:
-        p.set_zlim(('gas', 'density'), zlim[0], zlim[1])
-    # This will change the pixel size of the figure. Be careful!
-    # p.set_figure_size(6)
-    p.set_cmap(('gas', 'density'), 'inferno')
-    # p.annotate_timestamp(time_format='{time:.3f} {units}',
-    #                      time_offset=time_offset)
-
-def T_setup(p, zlim=None, time_offset=None):
-    if zlim is not None:
-        p.set_zlim('temperature', zlim[0], zlim[1])
-    p.set_figure_size(6)
-    p.set_cmap('temperature', 'gist_heat')
-    p.annotate_timestamp(time_format='{time:.3f} {units}',
-                         time_offset=time_offset)
 
 
 class RamPlot(Ramses):
@@ -379,7 +349,7 @@ def to_boxlen(quant, ds):
     else:
         return quant
 
-            
+
 def plot_a_region(
         ram, out, ds, center,
         fields='den', kind='slc', axis='z', width=None,
@@ -410,7 +380,7 @@ def plot_a_region(
             Default: None
         direcs (str): 'face' or 'edge'. Will only be used if L is not None.
         zlims (dict): The limits of the fields. e.g. {'density': [1e4, 1e8]},
-            {'B': [1e-5, 1e-2]} (the default of B field).  
+            {'B': [1e-5, 1e-2]} (the default of B field).
         l_max (int):
         is_id (bool): toggle marking sink ID (the order of creation)
         bar_length (float): not using

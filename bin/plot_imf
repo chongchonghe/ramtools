@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import os, sys
+import yt
+import numpy as np
+import matplotlib.pyplot as plt
+from ramtools import ytfast, Ramses, plotutils, imf
+import argparse
+
+def get_args():
+    args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
+    args.add_argument("jobdir",
+                      help="Path to the simulation directory")
+    args.add_argument("outs", 
+                      help="Output frames. If 'all', do all output frames. "
+                      "Examples: '10', '10,11,13', '10-20'.")
+    args.add_argument("-c", "--center", default='c',
+                      help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'")
+    args.add_argument("-w", "--width", default='1',
+                      help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
+    args.add_argument("-t", "--to", default='.',
+                      help="The destination directory. Default: '.'")
+    args.add_argument("--mass-lim", type=float, nargs="+",
+                      help="Turn on overplotting sink particles")
+    args.add_argument("--kroupa", action="store_true",
+                      help="Enable overplotting mass-normalized Kroupa IMF")
+    args.add_argument("--kroupa-max", default="totmass",
+                      help="Default: totmass, = sum(sink_masses)")
+    args.add_argument("--kroupa-min", default="min",
+                      help="Default: sinkmin, = max(min(sink_masses), 10**-1.25)")
+
+    return args.parse_args()
+
+
+def main(args):
+    os.makedirs(args.to, exist_ok=1)
+    os.makedirs(os.path.join(args.to, "png"), exist_ok=1)
+    s = imf.Sink(args.jobdir)
+    r = s
+    if args.outs == 'all':
+        outs = r.get_all_outputs()
+    else:
+        if '-' in args.outs:
+            splits = [int(i) for i in args.outs.split('-')]
+            if len(splits) == 2:
+                outi, outf = splits
+                outs = range(outi, outf + 1)
+            elif len(splits) == 3:
+                outi, outf, diff = splits
+                outs = range(outi, outf + 1, diff)
+        else:
+            outs = [int(i) for i in args.outs.split(',')]
+    for out in outs:
+        smin = args.kroupa_min
+        smax = args.kroupa_max
+        masses = s.get_sink_masses(out)
+        if smin == "min":
+            smin = np.min(masses)
+        else:
+            smin = float(smin)
+        if smax == "totmass":
+            smax = np.sum(masses)
+        elif smax == "max":
+            smax = np.max(masses)
+        else:
+            smax = float(smax)
+        f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=masses,
+                                 kroupa_kwargs={"m_min": smin, "m_max": smax})
+        f.savefig(f"{args.to}/imf_out_{out}.pdf")
+        f.savefig(f"{args.to}/png/imf_out_{out}.png", dpi=300)
+    return
+
+if __name__ == '__main__':
+    sys.exit(main(get_args()))

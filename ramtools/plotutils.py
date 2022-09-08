@@ -19,29 +19,61 @@ Example
 import yt
 from . import ytfast
 
+def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
+              weight_field="density", is_time=False):
+    """
+    Args:
+        p (YT plot):
+        zlim (tuple): limits of the field
+        mu (float): the mean particle weight. The mass density rho = mu * n
+        quant (str): 'volume' or 'column' for volumetric and column density
+    """
 
-def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density'):
-    for field in ["density", ("gas", "density")]:
-        if unit == 'number_density':
-            p.set_unit(field, 'cm**-3',
-                       equivalency='number_density',
-                       equivalency_kwargs={'mu': mu})
-        if zlim is not None:
-            p.set_zlim(field, zlim[0], zlim[1])
-        # This will change the pixel size of the figure. Be careful!
-        p.set_figure_size(6)
-        p.set_cmap(field, 'inferno')
+    if unit == 'number_density':
+        if weight_field == "density":
+            p.set_unit(('gas', 'density'), 'cm**-3',
+                    equivalency='number_density',
+                    equivalency_kwargs={'mu': mu})
+    if zlim is not None:
+        p.set_zlim(('gas', 'density'), zlim[0], zlim[1])
+    # This will change the pixel size of the figure. Be careful!
+    # p.set_figure_size(6)
+    p.set_cmap(('gas', 'density'), 'inferno')
+    if is_time:
         p.annotate_timestamp(time_format='{time:.3f} {units}',
                              time_offset=time_offset)
 
-
-def T_setup(p, zlim=None, time_offset=None):
+def T_setup(p, zlim=None, time_offset=None, is_time=False):
     if zlim is not None:
         p.set_zlim('temperature', zlim[0], zlim[1])
     p.set_figure_size(6)
     p.set_cmap('temperature', 'gist_heat')
-    p.annotate_timestamp(time_format='{time:.3f} {units}',
-                         time_offset=time_offset)
+    if is_time:
+        p.annotate_timestamp(time_format='{time:.3f} {units}',
+                             time_offset=time_offset)
+
+# def T_setup(p, zlim=None, time_offset=None, is_time=True):
+#     if zlim is not None:
+#         p.set_zlim('temperature', zlim[0], zlim[1])
+#     p.set_figure_size(6)
+#     p.set_cmap('temperature', 'gist_heat')
+#     if is_time:
+#         p.annotate_timestamp(time_format='{time:.3f} {units}',
+#                              time_offset=time_offset)
+
+# def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density'):
+#     for field in ["density", ("gas", "density")]:
+#         if unit == 'number_density':
+#             p.set_unit(field, 'cm**-3',
+#                        equivalency='number_density',
+#                        equivalency_kwargs={'mu': mu})
+#         if zlim is not None:
+#             p.set_zlim(field, zlim[0], zlim[1])
+#         # This will change the pixel size of the figure. Be careful!
+#         p.set_figure_size(6)
+#         p.set_cmap(field, 'inferno')
+#         p.annotate_timestamp(time_format='{time:.3f} {units}',
+#                              time_offset=time_offset)
 
 
 def quick_plot_prj(ds, sinks, field='density', axis='z', use_h5=True,

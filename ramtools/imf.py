@@ -263,6 +263,49 @@ def overplot_kroupa_new(self, ax, m_sum, m_min=0.08, m_max=100, textxy=None,
 
     return
 
+
+def overplot_kroupa_new2(self, ax, m_sum, m_min=0.08, m_max=None, textxy=None,
+                        ls='--', isxloged=False, scale=1., **kwargs):
+    """ over plot a Kroupa IMF curve. parameters are in log scale
+    Normalized to total stellar mass
+
+    Notes
+    -----
+    self is useless. I put INTERP here for INTERP to be copied in the Sink class
+    """
+
+    print("here 23")
+    def kroupa_lin(m):
+        if m < 0.5:
+            return m**(-1.3) * m
+        else:
+            return 0.5 * m**(-2.3) * m
+    if m_max is None:
+        m_max = m_sum
+    kroupaNorm = integrate.quad(kroupa_lin, m_min, m_max)[0]
+    # print("kroupaNorm = ", kroupaNorm)
+    normFactor = m_sum / kroupaNorm
+    def kroupa_log(m):
+        """ Generate the Kroupa IMF """
+        if m < 0.5:
+            return normFactor * np.log(10) * m**(-0.3)
+        else:
+            return normFactor * 0.5 * np.log(10) * m**(-1.3)
+    if m_min < 0.5:
+        masses = [m_min, 0.5, m_max]
+    else:
+        masses = [m_min, m_max]
+    dNdlogm = np.array([kroupa_log(m) for m in masses])
+    x = masses if not isxloged else np.log10(masses)
+    ax.plot(x, scale * dNdlogm, ls=ls, **kwargs)
+    print("x =", x, "y =", scale * dNdlogm)
+    if textxy is not None:
+        ax.text(10**textxy[0], 10**textxy[1], "Kroupa single",
+                **kwargs)
+
+    return
+
+
 def overplot_salpeter(ax, m_sum, m_min=0.08, m_max=100, textxy=None, **kwargs):
     """ Overplot a Salpeter line. textxy=[textx, texty] in
     log scale """
@@ -888,13 +931,18 @@ class Sink(Ramses):
             m_orig = masses
         if shift is not None:
             m = np.array(m_orig) * shift
+        else:
+            m = m_orig
         is_ret = False
         if ax is None:
             is_ret = True
             f, ax = plt.subplots()
         # plot_imf_N_vs_m(ax, m, color='k', bin_width=bin_width, bins=bins)
-        if bin_width is not None:
-            bins = 10**np.arange(-2, 3.1, bin_width)
+        if bin_width is None:
+            bin_width = 0.2
+        bins = 10**np.arange(-2.0, 3.1, bin_width)
+        # if bin_width is not None:
+        #     bins = 10**np.arange(-2, 3.1, bin_width)
         plot_imf(ax, m, bins=bins, is_over_dlogm=is_over_dlogm, **kwargs)
 
         # write time and outputid tag
@@ -903,9 +951,17 @@ class Sink(Ramses):
         # ax.set_title('Job' + self.jobid)
         # utilities.add_out_tag(ax, out)
 
+        if "m_min" in kroupa_kwargs:
+            if kroupa_kwargs["m_min"] == "min":
+                kroupa_kwargs["m_min"] = max(np.min(m_orig), 10**-1.25)
         if is_kroupa: # overplot Kroupa IMF
-            overplot_kroupa_new(None, ax, np.sum(m_orig), color='k',
-                                isxloged=True, m_max=1000, **kroupa_kwargs,
+            # overplot_kroupa_new(None, ax, np.sum(m_orig), color='k',
+            #                     scale=bin_width,    # correct for dndlogm, where dlogm = bin_width = 0.2
+            #                     isxloged=True, **kroupa_kwargs, # m_max=1000, 
+            #                     )
+            overplot_kroupa_new2(None, ax, np.sum(m_orig), color='k',
+                                scale=bin_width,    # correct for dndlogm, where dlogm = bin_width = 0.2
+                                isxloged=True, **kroupa_kwargs,
                                 )
         if is_ret:
             return f, ax
