@@ -76,8 +76,12 @@ Examples
             self.jobPath = f"{ram_dir}/Job{jobid}"
             self.jobid = jobid
         self.ds1 = None
+        self.tRelax = None
         if self.get_units() == 0:
-            self.tRelax = self.get_trelax()
+            try:
+                self.tRelax = self.get_trelax()
+            except:
+                pass
         self.ramses_dir = os.path.dirname(self.jobPath if self.jobPath[-1] !=
                                           '/' else self.jobPath[:-1])
         self.data_dir = os.path.join(self.ramses_dir, "h5_data")
