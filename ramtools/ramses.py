@@ -474,3 +474,10 @@ def set_RAM_DIR(ram_dir):
     global RAM_DIR
     RAM_DIR = ram_dir
 
+
+def to_boxlen(quant, ds):
+    if type(quant) == tuple:
+        return float(yt.YTQuantity(*quant) / ds.length_unit)
+    else:
+        return quant
+

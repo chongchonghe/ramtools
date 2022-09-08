@@ -3,6 +3,11 @@
 For documentation, check docs/index.rst
 """
 
+import os, sys
+import yt
+import numpy as np
+import matplotlib.pyplot as plt
+from ramtools import ytfast, Ramses, plotutils, ramses
 import argparse
 
 def get_args():
@@ -24,6 +29,10 @@ def get_args():
                       help="The destination directory. Default: '.'")
     args.add_argument("-k", "--kinds", default='slc',
                       help="Plot types. Examples: 'prj', 'prj,slc'. Default: 'slc'")
+    args.add_argument("-s", "--sink", action="store_true",
+                      help="Turn on overplotting sink particles")
+    args.add_argument("--mass-lim", type=float, nargs="+",
+                      help="Turn on overplotting sink particles")
     return args.parse_args()
 
 
@@ -34,12 +43,6 @@ def main(args):
     """
     # print(args)
     # return
-
-    import os
-    import yt
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from ramtools import ytfast, Ramses, plotutils
 
     # plt.style.use(['science', 'no-latex'])
 
@@ -57,10 +60,14 @@ def main(args):
                 outs = range(outi, outf + 1, diff)
         else:
             outs = [int(i) for i in args.outs.split(',')]
-    if ',' in args.center:
+    use_sink_as_center = False
+    if args.center == 'c':
+        center = [0.5, 0.5, 0.5]
+    elif ',' in args.center:
         center = [float(i) for i in args.center.split(',')]
     else:
-        center = args.center
+        use_sink_as_center = True
+        sink_center = int(args.center)
     if ',' in args.width:
         p1, p2 = args.width.split(',')
         width = (float(p1), p2)
@@ -69,6 +76,9 @@ def main(args):
     os.makedirs(args.to, exist_ok=1)
     for out in outs:
         ds = r.load_ds(out)
+        width = ramses.to_boxlen(width, ds)
+        if use_sink_as_center:
+            center = r.get_sink_positions(out)[sink_center] / r.boxlen
         for field in args.fields.split(','):
             if field == "den":
                 field = "density"
@@ -86,10 +96,19 @@ def main(args):
                                     weight_field=('gas', 'density'))
                     if field == 'density':
                         plotutils.den_setup(p)
+                    # overplot sink particles
+                    if args.sink:
+                        is_id = False
+                        lims = [0.1, 10]
+                        if args.mass_lim is not None:
+                            lims = args.mass_lim
+                        r.overplot_sink_with_id(
+                            p, out, center, width/2, is_id=is_id,
+                            zorder='mass', withedge=1, lims=lims)
                     fo = f"{kind}-{axis}-{field}-out{out}.png"
                     p.save((args.to, fo), mpl_kwargs={"dpi": 300})
                     plt.close('all')
 
 
 if __name__ == '__main__':
-    exit(main(get_args()))
+    sys.exit(main(get_args()))
