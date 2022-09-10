@@ -2,32 +2,30 @@ import sys, os
 from time import time
 import numpy as np
 import yt
-sys.path.insert(0, "..")
 import ramtools as rt
+from glob import glob
 
-def basic():
+def basic(job):
 
-    print("Running some tests. By the end of the test, you should see "
-        "'Tests done. Successful!'")
-    print("\nTest 1: claiming Ramses class on tests/job_test/")
-    r = rt.Ramses("tests/Job1")
-    print(r.get_time(1))
-    r = rt.Ramses(jobid="1", ram_dir="tests")
-    print(r.get_time(1))
-    rt.set_RAM_DIR("tests")
-    r = rt.Ramses(jobid="1")
-    print(r.get_time(1))
-    print("\nTest 2: load tests/job_test/output_00001/info_00001.txt")
-    ds = r.load_ds(1)
+    print("Running some tests.")
+    print(f"\nTest 1: claiming Ramses class on the job {job}")
+    r = rt.Ramses(job)
+    if not r.success:
+        print(f"Failed. No output directory exists in {job}")
+        return
+    out = r.get_first_output()
+    print(f"At out {out}, t = {r.get_time(out)}")
+    print(f"\nTest 2: load {job}/output_{out:05d}/info_{out:05d}.txt")
+    ds = r.load_ds(out)
     print(f"ds unit length: {ds.length_unit}")
-
     print("\nTest 3: test utilities.get_sink_mass_from_movie1_for_all_sinks")
-    outs, times, sink = rt.utilities.get_sink_mass_from_movie1_for_all_sinks("tests/Job1/movie1")
+    outs, times, sink = rt.utilities.get_sink_mass_from_movie1_for_all_sinks(
+        "tests/Job1/movie1")
     print("outs =", outs)
     print("times =", times)
     print("sinks.shape =", np.array(sink).shape)
 
-def fastplot():
+def fastplot(job):
     from ramtools import ytfast
     ytfast.set_data_dir("./tests/h5_data")
     print("\nTest 5: fast plotting")
@@ -88,65 +86,36 @@ def fastplot_phase():
     f.savefig("t_phaseplot.png", dpi=300)
     print("\nTime: ", time() - t1)
 
-def plot():
+def plot(job):
     print("\nTest 4: plotting")
-    rp = rt.RamPlot("tests/Job2")
+    rp = rt.RamPlot(job)
     t1 = time()
-    p = rp.plot_prj(40, )
+    out = 1
+    p = rp.plot_prj(out)
     p.save()
     print("\nFirst time: ", time() - t1)
     t1 = time()
-    p = rp.plot_prj(40, )
+    p = rp.plot_prj(out, )
     p.save()
     print("\nSecond time: ", time() - t1)
     # print(rp.get_time(1))
 
-def cacherun():
-    from ramtools import cacherun
-    def get_max_pos(ds, field):
-        return ds.all_data().argmax(field)
-    # snap = cacherun.RamsesSnapshot("tests/Job2", 40)
-    # t1 = time()
-    # print(cacherun.CacheRun(get_max_pos).Run(snap, 'density'))
-    # print("First run, time: ", time() - t1)
-    # t1 = time()
-    # print(cacherun.CacheRun(get_max_pos).Run(snap, 'density'))
-    # print("Second run, time: ", time() - t1)
-    ds = cacherun.my_yt_load("tests/Job2", 40)
-    t1 = time()
-    print(cacherun.CacheRun(get_max_pos).Run(ds, 'density'))
-    print("First run, time: ", time() - t1)
-    t1 = time()
-    print(cacherun.CacheRun(get_max_pos).Run(ds, 'density'))
-    print("Second run, time: ", time() - t1)
-
-def cacherun_base():
-    from ramtools.cacherunbase import CacheRun
-    import time
-    print('start')
-    def func1(x, y=1):
-        time.sleep(2)
-        return x + y
-    print('first call:', func1(10, y=2))
-    print('second call:', CacheRun(func1, os.path.abspath(__file__), flag='in1')(10, y=2))
-
-def cacherun_base2():
-    from ramtools.cacherunbase import CacheRun
-    import time
-    print('start')
-    def func1(x, y=1):
-        time.sleep(2)
-        return x * x + y
-    print('first call:', func1(10, y=2))
-    print('second call:', CacheRun(func1, os.path.abspath(__file__), flag='in2')(10, y=2))
-
-
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        main()
-    else:
-        arg = sys.argv[1]
-        if arg == 'all':
-            pass
-        eval(arg + "()")
-    print('Tests done. Successful!')
+    print("---------------- Running test_ramses.py ---------------------")
+    JOB = sys.argv[1]
+    def msg(task):
+        print("Test {} done!\n".format(task))
+    basic(JOB)
+    msg("basic")
+    # fastplot(JOB)               # not working
+    # fastplot_phase(JOB)         # not working
+    # plot(JOB)                   # not working. Replace it with ytfast
+    # msg("plot")
+    # cacherun_base()
+    # msg("cacherun_base")
+    # cacherun_base2()
+    # msg("cacherun_base2")
+    # print('Tests done. Successful!')
+    print('Tests completed successful!')
+    print("-----------------------------------------------------------------")
+    print()

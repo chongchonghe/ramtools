@@ -17,7 +17,7 @@ from .cacherun import CacheRun
 def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
                     pot_test_width=2**-12):
     """
-    Return a total quantity of the given cloud (ds), e.g. the total mass.
+    Return the sum of a given quantity (e.g. the total mass.) over a region defined by filter of a given cloud (identified by ds). 
 
     Args:
         ds: yt.ds, instance of ds.load(...)
@@ -32,6 +32,7 @@ def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
     Returns:
         YT float.
     """
+
     if dataset is None:
         # ad = ds.all_data()
         ad = ds.sphere('c', radius=0.5)
@@ -71,6 +72,7 @@ def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
         E_B = ((bx_avg ** 2 + by_avg ** 2 + bz_avg ** 2) / (8 * np.pi) *
                reg['cell_volume']).sum()
         return E_B
+    # end if var == 'mag_ene':
     if var == 'pot_ene':
         dx = ds.length_unit / 2 ** 12  # the size of the box to exclude
         dx_cm = float(dx)
@@ -132,6 +134,7 @@ def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
         totpot = ((reg['potential'] * pot_unit + pot_ground) * reg[
             'cell_mass']).sum()
         return totpot
+    # end if var == 'pot_ene'
     return np.nan
 
 
@@ -146,7 +149,7 @@ def describe_cloud(jobfolder, out, variables, filter):
         filter: gas region filter
 
     Returns:
-        None
+        A dictionary of all parameters
     """
 
     # snap = RamsesSnapshot(jobfolder, out)

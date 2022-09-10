@@ -3,11 +3,12 @@
 docs/
 docs.bk/
 docs.bk2/
-tests/Job2/
-tests/h5_data/
 .idea/
 .gitignore
 *.png
+**/cache
+*.swp
+tests/figures/
 
 # General
 .DS_Store

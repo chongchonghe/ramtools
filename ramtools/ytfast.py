@@ -119,6 +119,7 @@ def SlicePlot(ds, normal=None, fields=None, zlim=None, *args, **kwargs):
     return yt.SlicePlot(data, normal, fields, *args, **kwargs)
 
 def SlicePlot_cacherun(ds, *args, **kwargs):
+    """What is this???"""
     # ds = RamsesSnapshot(jobdir, out)
 
     def slice_ds(ds, *args, **kwargs):
