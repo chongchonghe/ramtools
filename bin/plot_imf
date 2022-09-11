@@ -4,21 +4,21 @@ import os, sys
 import yt
 import numpy as np
 import matplotlib.pyplot as plt
-from ramtools import ytfast, Ramses, plotutils, imf
+from ramtools import ytfast, Ramses, plotutils, imf, NoSinkParticle
 import argparse
 
 def get_args():
     args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
-    args.add_argument("jobdir",
+    args.add_argument("jobdir", default="..", nargs="?",
                       help="Path to the simulation directory")
-    args.add_argument("outs", 
+    args.add_argument("outs", default="all", nargs="?",
                       help="Output frames. If 'all', do all output frames. "
                       "Examples: '10', '10,11,13', '10-20'.")
     args.add_argument("-c", "--center", default='c',
                       help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'")
     args.add_argument("-w", "--width", default='1',
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
-    args.add_argument("-t", "--to", default='.',
+    args.add_argument("-t", "--to", default='./MF',
                       help="The destination directory. Default: '.'")
     args.add_argument("--mass-lim", type=float, nargs="+",
                       help="Turn on overplotting sink particles")
@@ -53,7 +53,13 @@ def main(args):
     for out in outs:
         smin = args.kroupa_min
         smax = args.kroupa_max
-        masses = s.get_sink_masses(out)
+        try:
+            masses = s.get_sink_masses(out)
+        except NoSinkParticle:
+            print("No sink particles found in frame", out)
+            continue
+        except FileNotFound:
+            continue
         if smin == "min":
             smin = np.min(masses)
         else:
@@ -66,8 +72,10 @@ def main(args):
             smax = float(smax)
         f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=masses,
                                  kroupa_kwargs={"m_min": smin, "m_max": smax})
-        f.savefig(f"{args.to}/imf_out_{out}.pdf")
+        fn = f"{args.to}/imf_out_{out}.pdf"
+        f.savefig(fn)
         f.savefig(f"{args.to}/png/imf_out_{out}.png", dpi=300)
+        print(fn, 'saved')
     return
 
 if __name__ == '__main__':

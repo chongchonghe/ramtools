@@ -12,12 +12,12 @@ import argparse
 
 def get_args():
     args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
-    args.add_argument("jobdir",
+    args.add_argument("jobdir", nargs="?", default="..",
                       help="Path to the simulation directory")
-    args.add_argument("outs", 
+    args.add_argument("outs",  nargs="?", default="all",
                       help="Output frames. If 'all', do all output frames. "
                       "Examples: '10', '10,11,13', '10-20', '10-20-2'.")
-    args.add_argument("axes",
+    args.add_argument("axes", nargs="?", default="x,y,z",
                       help="The line of sight. Examples: 'x', 'x,y,z'")
     args.add_argument("-c", "--center", default='c',
                       help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'")
@@ -25,9 +25,9 @@ def get_args():
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
     args.add_argument("-f", "--fields", default='den',
                       help="The fields to plot. Examples: 'den', 'den,temp'. Default: 'den'")
-    args.add_argument("-t", "--to", default='.',
+    args.add_argument("-t", "--to", default='./projections',
                       help="The destination directory. Default: '.'")
-    args.add_argument("-k", "--kinds", default='slc',
+    args.add_argument("-k", "--kinds", default='slc,prj',
                       help="Plot types. Examples: 'prj', 'prj,slc'. Default: 'slc'")
     args.add_argument("-s", "--sink", action="store_true",
                       help="Turn on overplotting sink particles")
