@@ -16,7 +16,7 @@ def get_args():
                       help="Path to the simulation directory")
     args.add_argument("outs", 
                       help="Output frames. If 'all', do all output frames. "
-                      "Examples: '10', '10,11,13', '10-20'.")
+                      "Examples: '10', '10,11,13', '10-20', '10-20-2'.")
     args.add_argument("axes",
                       help="The line of sight. Examples: 'x', 'x,y,z'")
     args.add_argument("-c", "--center", default='c',
@@ -75,6 +75,9 @@ def main(args):
         width = float(args.width)
     os.makedirs(args.to, exist_ok=1)
     for out in outs:
+        if not r.exist(out):
+            print(f"Skipping frame {out}")
+            continue
         ds = r.load_ds(out)
         width = ramses.to_boxlen(width, ds)
         if use_sink_as_center:
