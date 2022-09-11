@@ -1,0 +1,24 @@
+#!/usr/bin/env python
+"""
+Quickly analyse a new simulation. Do the following:
+1. Make projections plots of the density and temperature from the x,y,z direction for all outputs; store figures in ./A-postprocess/projections-wholebox
+2. (TODO) Make mass function plots of all outputs; store figures in ./A-postprocess/massfunction-wholebox
+"""
+
+import imp
+
+prj_plot = imp.load_source("main", "plot_projection")
+
+args = dict(
+    jobdir = ".",
+    outs = "all",
+    axes = "x,y,z",
+    center = 'c',
+    width = 1,
+    fields = "den,temp",
+    to = "A-postprocess/projections-wholebox",
+    kinds = "prj",
+)
+
+prj_plot(args)
+

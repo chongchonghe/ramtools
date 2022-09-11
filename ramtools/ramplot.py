@@ -410,7 +410,7 @@ def plot_a_region(
     if isinstance(time_offset, int):
         time_offset = r.get_time(time_offset)
     elif isinstance(time_offset, str):
-        if time_offset is 'tRelax':
+        if time_offset == 'tRelax':
             time_offset = r.tRelax
     else:
         time_offset = time_offset
