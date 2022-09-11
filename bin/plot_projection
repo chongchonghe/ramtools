@@ -36,6 +36,8 @@ def get_args():
                       help="Turn on overplotting sink particles")
     args.add_argument("--mass-lim", type=float, nargs="+",
                       help="Turn on overplotting sink particles")
+    args.add_argument("-o", "--overwrite", action="store_true",
+                      help="Turn on overwritting")
     return args.parse_args()
 
 
@@ -93,6 +95,10 @@ def main(args):
             thefield = ('gas', field)
             for axis in args.axes.split(','):
                 for kind in args.kinds.split(','):
+                    fo = f"{kind}-{axis}-{field}-out{out}.png"
+                    if (not args.overwrite) and os.path.exists(os.path.join(args.to, fo)):
+                        print(fo, "exists. Skipping")
+                        continue
                     if kind == 'slc':
                         thefunc = ytfast.SlicePlot
                         p = thefunc(ds, axis, thefield, center=center, width=width)
@@ -111,7 +117,6 @@ def main(args):
                         r.overplot_sink_with_id(
                             p, out, center, width/2, is_id=is_id,
                             zorder='mass', withedge=1, lims=lims)
-                    fo = f"{kind}-{axis}-{field}-out{out}.png"
                     p.save((args.to, fo), mpl_kwargs={"dpi": 300})
                     plt.close('all')
 
