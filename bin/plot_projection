@@ -118,6 +118,7 @@ def main(args):
                             p, out, center, width/2, is_id=is_id,
                             zorder='mass', withedge=1, lims=lims)
                     p.save((args.to, fo), mpl_kwargs={"dpi": 300})
+                    print(fo, "saved")
                     plt.close('all')
 
 
