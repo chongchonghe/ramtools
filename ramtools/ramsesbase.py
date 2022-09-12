@@ -69,6 +69,7 @@ Examples
         """
         self.jobPath = jobdir
         self.fields = fields
+        self.ds_container = {}
         self.ds1 = None
         self.get_ds()
         if self.get_units():
@@ -125,10 +126,12 @@ Examples
 
     def load_ds(self, out):
         """Return a yt.load instance of the frame `out`"""
-        if self.fields is None:
-            return yt.load(self.get_info_path(out))
-        else:
-            return yt.load(self.get_info_path(out), fields=self.fields)
+        if out not in self.ds_container:
+            if self.fields is None:
+                self.ds_container[out] = yt.load(self.get_info_path(out))
+            else:
+                self.ds_container[out] = yt.load(self.get_info_path(out), fields=self.fields)
+        return self.ds_container[out]
 
     def get_sink_path(self, out):
         """Return the path to sink_*.csv """
