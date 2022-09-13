@@ -40,6 +40,8 @@ def get_args():
                       help="Turn on overplotting sink particles")
     args.add_argument("-o", "--overwrite", action="store_true",
                       help="Turn on overwritting")
+    args.add_argument("-p", "--params", type=dict,
+                      help="A dictionary of extra parameters")
     return args.parse_args()
 
 
@@ -91,10 +93,11 @@ def main(args):
             center = r.get_sink_positions(out)[sink_center] / r.boxlen
         for field in args.fields.split(','):
             if field == "den":
-                field = "density"
-            if field in ["tem", "temp"]:
-                field = "temperature"
-            thefield = ('gas', field)
+                thefield = ("gas", "density")
+            elif field in ["tem", "temp"]:
+                thefield = ("gas", "temperature")
+            else:
+                thefield = ("gas", field)
             for axis in args.axes.split(','):
                 for kind in args.kinds.split(','):
                     fo = f"{kind}-{axis}-{field}-out{out}.png"
@@ -108,8 +111,11 @@ def main(args):
                         thefunc = ytfast.ProjectionPlot
                         p = thefunc(ds, axis, thefield, center=center, width=width,
                                     weight_field=('gas', 'density'))
-                    if field == 'density':
+                    if field in ['den', 'density']:
                         plotutils.den_setup(p)
+                    if 'zlim' in args.params:
+                        if field in args.params['zlim']:
+                            p.set_zlim(thefield, *args.params['zlim'][field])
                     # overplot sink particles
                     if args.sink:
                         is_id = False

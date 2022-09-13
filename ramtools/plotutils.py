@@ -29,25 +29,38 @@ def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
         quant (str): 'volume' or 'column' for volumetric and column density
     """
 
+    if "density" in p.fields:
+        fi = "density"
+    elif ("gas", "density") in p.fields:
+        fi = ("gas", "density")
+    else:
+        print("Failed to run den_setup: 'density' field not found")
+        return
     if unit == 'number_density':
-        if weight_field == "density":
-            p.set_unit(('gas', 'density'), 'cm**-3',
-                    equivalency='number_density',
-                    equivalency_kwargs={'mu': mu})
+        if weight_field == "density" or weight_field == ("gas", "density"):
+            p.set_unit(fi, 'cm**-3', equivalency='number_density',
+                       equivalency_kwargs={'mu': mu})
     if zlim is not None:
-        p.set_zlim(('gas', 'density'), zlim[0], zlim[1])
+        p.set_zlim(fi, zlim[0], zlim[1])
     # This will change the pixel size of the figure. Be careful!
     # p.set_figure_size(6)
-    p.set_cmap(('gas', 'density'), 'inferno')
+    p.set_cmap(fi, 'inferno')
     if is_time:
         p.annotate_timestamp(time_format='{time:.3f} {units}',
                              time_offset=time_offset)
 
 def T_setup(p, zlim=None, time_offset=None, is_time=False):
+    if "temperature" in p.fields:
+        fi = "temperature"
+    elif ("gas", "temperature") in p.fields:
+        fi = ("gas", "temperature")
+    else:
+        print("Failed to run T_setup: 'temperature' field not found")
+        return
     if zlim is not None:
-        p.set_zlim('temperature', zlim[0], zlim[1])
+        p.set_zlim(fi, zlim[0], zlim[1])
     p.set_figure_size(6)
-    p.set_cmap('temperature', 'gist_heat')
+    p.set_cmap(fi, 'gist_heat')
     if is_time:
         p.annotate_timestamp(time_format='{time:.3f} {units}',
                              time_offset=time_offset)
