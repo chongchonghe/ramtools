@@ -4,7 +4,7 @@ import os, sys
 import yt
 import numpy as np
 import matplotlib.pyplot as plt
-from ramtools import ytfast, Ramses, plotutils, imf, NoSinkParticle
+from ramtools import ytfast, Ramses, plotutils, imf, NoSinkParticle, ramsesbase
 import argparse
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,7 +20,7 @@ def get_args():
                       "Examples: '10', '10,11,13', '10-20'.")
     args.add_argument("-c", "--center", default='c',
                       help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'")
-    args.add_argument("-w", "--width", default='1',
+    args.add_argument("-w", "--width", default='inf',
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
     args.add_argument("-t", "--to", default='./MF',
                       help="The destination directory. Default: '.'")
@@ -39,7 +39,18 @@ def get_args():
 def main(args):
     os.makedirs(args.to, exist_ok=1)
     os.makedirs(os.path.join(args.to, "png"), exist_ok=1)
+    center = args.center
+    if center == 'c':
+        center = [0.5, 0.5, 0.5]
+    else:
+        center = [float(x) for x in center.split(',')]
+    if ',' in args.width:
+        p1, p2 = args.width.split(',')
+        width = (float(p1), p2)
+    else:
+        width = float(args.width)
     s = imf.Sink(args.jobdir)
+    width = ramsesbase.to_boxlen(width, s.ds1)
     r = s
     if args.outs == 'all':
         outs = r.get_all_outputs()
@@ -59,11 +70,17 @@ def main(args):
         smax = args.kroupa_max
         try:
             masses = s.get_sink_masses(out)
+            pos = s.get_sink_positions(out) / s.boxlen
         except NoSinkParticle:
             print("No sink particles found in frame", out)
             continue
         except FileNotFound:
             continue
+        dists = []
+        m_inside = []
+        for i in range(len(masses)):
+            if np.max(np.abs(pos[i] - center)) <= width / 2:
+                m_inside.append(masses[i])
         if smin == "min":
             smin = np.min(masses)
         else:
@@ -74,7 +91,7 @@ def main(args):
             smax = np.max(masses)
         else:
             smax = float(smax)
-        f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=masses,
+        f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=m_inside,
                                  kroupa_kwargs={"m_min": smin, "m_max": smax})
         fn = f"{args.to}/imf_out_{out}.pdf"
         f.savefig(fn)

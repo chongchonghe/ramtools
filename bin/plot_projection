@@ -27,7 +27,12 @@ def get_args():
     args.add_argument("axes", nargs="?", default="x,y,z",
                       help="The line of sight. Examples: 'x', 'x,y,z'")
     args.add_argument("-c", "--center", default='c',
-                      help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'")
+                      help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'\n"
+                      "Cases:\n"
+                      "    'c': 0.5, 0.5, 0.5\n"
+                      "    x,y,z: position in boxlen unit\n",
+                      "    integer: use the location of a sink particle with the given index as the center\n"
+                     )
     args.add_argument("-w", "--width", default='1',
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
     args.add_argument("-f", "--fields", default='den',
