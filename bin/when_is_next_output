@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+""" Read *.bash.o* file and predict when will it reach a specific simulation
+time
+Usage: time_outfile.py path-to-o-file time
+"""
+
+from __future__ import print_function, division
+import sys
+import argparse
+import subprocess
+import time
+import numpy as np
+from glob import glob
+import f90nml
+
+def delete_lastline():
+    "delete the last line in the STDOUT"
+
+    #cursor up oneline
+    sys.stdout.write('\x1b[1A')
+
+    #delete last line
+    sys.stdout.write('\x1b[2K')
+
+def readtime(s):
+    """ read t from a line. If 't=' not found, return -1. """
+    flag = False
+    for word in s.split():
+        if flag:
+            t = float(word)
+            return t
+        if word == 't=':
+            flag = True
+    return -1
+
+def main(fn, tend=None, N=None, outframe=None):
+    #
+    if outframe is not None:
+        nml = f90nml.read("run.sink.nml")
+        touts = nml["OUTPUT_PARAMS"]["tout"]
+        tend = touts[outframe - 2]
+    else:
+        assert tend is not None
+
+    tc0 = 0.
+    t0 = time.time()
+
+    if fn is None:
+        fn = sorted(glob("./*.bash.o*"))[-1]
+    print("Parsing", fn, "targetting at", tend)
+
+    tcl = np.arange(N, dtype=float)
+    tl = np.arange(N, dtype=float)
+
+    count = 0
+    while True:
+        time.sleep(2)
+        result = subprocess.check_output("tail -n 3 {}".format(fn), shell=True)
+        result = result.decode()
+        tc1 = readtime(result)
+        t1 = time.time()
+        if tc1 < 0:
+            continue
+        count += 1
+        tcl[:-1] = tcl[1:]
+        tcl[-1] = tc1
+        tl[:-1] = tl[1:]
+        tl[-1] = t1
+        texp = (tend - tc1) / (tcl[-1] - tcl[0]) * (tl[-1] - tl[0])
+        isneg = texp <= 0.0
+        # if isneg:
+        #     print("The current simulation time is ahead of the target time. \n"
+        #         f"The current time is {tc1} while tend = {tend}")
+        #     return
+        #     texp = -1. * texp
+
+        # dt = t1 - t0
+        # dtc = tc1 - tc0
+        # if abs(dtc) < 1e-10:
+        #     continue
+        # texp = (tend - tc1) / dtc * dt
+
+        if count >= 2:
+            delete_lastline()
+        if count > N:
+            if texp > 1e20:
+                print("Predicted time remaining: inf")
+                continue
+            h = int(texp // 3600)
+            m = int((texp - h * 3600) // 60)
+            s = int(texp - h * 3600 - m * 60)
+            print("Predicted time remaining: {}{:d} h, {:d} min, {:d} s".
+                  format("(NEGATIVE) " if isneg else "", h, m , s))
+        else:
+            print("Waiting to calculate...    count = {:2d}/{:d}".format(count, N))
+        # tc0 = tc1
+        # t0 = t1
+    return
+
+
+if __name__ == "__main__":
+
+    DOCS = """ Predict the time remaining before the simulation reach a given
+    time (in code unit) """
+    PARSER = argparse.ArgumentParser(description=DOCS)
+    PARSER.add_argument('ofn', help='name of the .o file')
+    PARSER.add_argument('-f', type=int, help='output frame to target for')
+    PARSER.add_argument('-tend', type=float, help='tend in code units to target for')
+    PARSER.add_argument('-N', type=int, default=5, help='the number of cycles to do one calculate')
+    ARGS = PARSER.parse_args()
+
+    main(ARGS.ofn, ARGS.tend, ARGS.N, ARGS.f)
+
+    # try:
+    #     TEND = float(sys.argv[2])
+    #     main(sys.argv[1], TEND)
+    # except IndexError:
+    #     print("Usage: {} outfile t_end".format(sys.argv[0]))
