@@ -12,8 +12,10 @@ import argparse
 import warnings
 warnings.filterwarnings("ignore")
 
-plt.style.use(['science', 'no-latex'])
-
+try:
+    plt.style.use(['science', 'no-latex'])
+except:
+    pass
 
 def get_args():
     args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
