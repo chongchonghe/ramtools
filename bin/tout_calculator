@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+
+def main(t0, dt, nout, digits=5):
+    fmt = f"{{:.{digits}f}}"
+    t = t0
+    for i in range(nout):
+        print(fmt.format(t), end=', ')
+        t += dt
+    print()
