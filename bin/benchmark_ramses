@@ -126,7 +126,9 @@ def main(out_fmt):
     plot_dt_vs_coarse('.', ax, out_fmt=out_fmt)
     plt.title(os.path.basename(os.path.abspath('.')))
     plt.tight_layout()
-    plt.savefig('t_and_ncoarse.png')
+    # plt.savefig('t_and_ncoarse.png')
+    bn = os.path.basename(out_fmt).replace("*", "xxx")
+    plt.savefig("benchmark-" + bn + ".png")
 
 if __name__ == "__main__":
 
@@ -141,5 +143,3 @@ Usage: (in job direction)
             print(helpm)
         else:
             main(sys.argv[1])
-            if sys.platform == "darwin":
-                os.system('open t_and_ncoarse.png')
