@@ -42,7 +42,7 @@ def get_args():
                       help="Turn on overplotting sink particles")
     args.add_argument("-o", "--overwrite", action="store_true",
                       help="Turn on overwritting")
-    args.add_argument("-p", "--params", type=dict,
+    args.add_argument("-p", "--params", type=dict, default={},
                       help="A dictionary of extra parameters")
     return args.parse_args()
 
