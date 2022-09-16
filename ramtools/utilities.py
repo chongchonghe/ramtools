@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import yt
+import f90nml
 from .yt_field_descrs import FIELDS
 
 def mass_to_temp(mass):
@@ -162,12 +163,13 @@ def get_sink_mass_from_movie1_for_all_sinks(movie_dir):
         info = info_fn_fmt.format(i)
         t = read_quant_from_ramses_info(info, 'time')
         times.append(t)
-        sink = np.loadtxt(fn, delimiter=',')
+        # sink = np.loadtxt(fn, delimiter=',')
+        sink = np.genfromtxt(fn, delimiter=',', missing_values=np.nan)
         if sink.ndim == 1:
             sink = np.array([sink])
-        sink = np.loadtxt(fn, delimiter=',')
-        if sink.ndim == 1:
-            sink = np.array([sink])
+        # sink = np.loadtxt(fn, delimiter=',')
+        # if sink.ndim == 1:
+        #     sink = np.array([sink])
         thisn = sink.shape[0]
         if thisn > sinkn:
             for k in range((thisn - sinkn)):
@@ -191,3 +193,34 @@ def get_unit_B(ds):
     um = ds.mass_unit
     ut = ds.time_unit
     return np.sqrt(um / ul) / ut
+
+def get_unit_B_new(ds):
+    """ NEW: the original version was wrong
+    Get the unit of B field strength. 
+
+    [B] = sqrt(4pi) * [v] * [sqrt(rho)]
+
+    Return:
+        YT.unit: the unit of B in cgs units
+    """
+
+    return ds.magnetic_unit
+
+def read_from_nml(fn, cat, field):
+    nml = f90nml.read(fn)
+    return nml[cat][field]
+
+def read_zoom_center(nml):
+    """ Given the namelist file nml, return the center of the zoom """
+
+    x = read_from_nml(nml, "REFINE_PARAMS", "x_refine")[-1]
+    y = read_from_nml(nml, "REFINE_PARAMS", "y_refine")[-1]
+    z = read_from_nml(nml, "REFINE_PARAMS", "z_refine")[-1]
+    return [x, y, z]
+
+def read_zoom_radius(nml, idx=-1):
+    """ Given the namelist file nml, return the radius of the zoom region (with maximum l_max """
+
+    rs = read_from_nml(nml, "REFINE_PARAMS", "r_refine")
+    return rs[idx]
+

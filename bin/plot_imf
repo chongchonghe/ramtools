@@ -4,9 +4,11 @@ import os, sys
 import yt
 import numpy as np
 import matplotlib.pyplot as plt
-from ramtools import ytfast, Ramses, plotutils, imf, NoSinkParticle, ramsesbase
+from ramtools import ytfast, Ramses, plotutils, imf, NoSinkParticle, ramsesbase, \
+        utilities as ut
 import argparse
 import warnings
+from glob import glob
 warnings.filterwarnings("ignore")
 
 plt.style.use(['science', 'no-latex'])
@@ -39,16 +41,40 @@ def get_args():
 def main(args):
     os.makedirs(args.to, exist_ok=1)
     os.makedirs(os.path.join(args.to, "png"), exist_ok=1)
-    center = args.center
-    if center == 'c':
+
+    if args.center == 'c':
         center = [0.5, 0.5, 0.5]
+    elif args.center == 'zoomc':    # use zoom center
+        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
+        if len(nmls) == 0:
+            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
+            return
+        nml = nmls[0]
+        print(f"Reading center from namelist file {nml}")
+        center = ut.read_zoom_center(nml)
+    elif ',' in args.center:
+        center = [float(i) for i in args.center.split(',')]
     else:
-        center = [float(x) for x in center.split(',')]
-    if ',' in args.width:
+        print("Unknown center")
+        return
+
+    if 'zoomr' in args.width:
+        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
+        if len(nmls) == 0:
+            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
+            return
+        nml = nmls[0]
+        print(f"Reading width from namelist file {nml}")
+        idx = -1
+        if len(args.width) > 5:
+            idx = int(args.width[5:])
+        width = ut.read_zoom_radius(nml, idx) * 2
+    elif ',' in args.width:
         p1, p2 = args.width.split(',')
         width = (float(p1), p2)
     else:
         width = float(args.width)
+
     s = imf.Sink(args.jobdir)
     width = ramsesbase.to_boxlen(width, s.ds1)
     r = s
