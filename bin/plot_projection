@@ -4,8 +4,13 @@ For documentation, check docs/index.rst
 """
 
 import os, sys
+import yt
+import numpy as np
+import matplotlib.pyplot as plt
+from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
 import argparse
 import warnings
+from glob import glob
 warnings.filterwarnings("ignore")
 
 def get_args():
@@ -83,12 +88,31 @@ def main(args):
     use_sink_as_center = False
     if args.center == 'c':
         center = [0.5, 0.5, 0.5]
+    elif args.center == 'zoomc':    # use zoom center
+        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
+        if len(nmls) == 0:
+            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
+            return
+        nml = nmls[0]
+        print(f"Reading center from namelist file {nml}")
+        center = ut.read_zoom_center(nml)
     elif ',' in args.center:
         center = [float(i) for i in args.center.split(',')]
     else:
         use_sink_as_center = True
         sink_center = int(args.center)
-    if ',' in args.width:
+    if 'zoomr' in args.width:
+        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
+        if len(nmls) == 0:
+            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
+            return
+        nml = nmls[0]
+        print(f"Reading width from namelist file {nml}")
+        idx = -1
+        if len(args.width) > 5:
+            idx = int(args.width[5:])
+        width = ut.read_zoom_radius(nml, idx) * 2
+    elif ',' in args.width:
         p1, p2 = args.width.split(',')
         width = (float(p1), p2)
     else:
