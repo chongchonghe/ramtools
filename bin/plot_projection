@@ -4,18 +4,9 @@ For documentation, check docs/index.rst
 """
 
 import os, sys
-import yt
-import numpy as np
-import matplotlib.pyplot as plt
-from ramtools import ytfast, Ramses, plotutils, ramses
 import argparse
 import warnings
 warnings.filterwarnings("ignore")
-
-try:
-    plt.style.use(['science', 'no-latex'])
-except:
-    pass
 
 def get_args():
     args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
@@ -30,7 +21,7 @@ def get_args():
                       help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'\n"
                       "Cases:\n"
                       "    'c': 0.5, 0.5, 0.5\n"
-                      "    x,y,z: position in boxlen unit\n",
+                      "    x,y,z: position in boxlen unit\n"
                       "    integer: use the location of a sink particle with the given index as the center\n"
                      )
     args.add_argument("-w", "--width", default='1',
@@ -49,6 +40,12 @@ def get_args():
                       help="Turn on overwritting")
     args.add_argument("-p", "--params", type=dict, default={},
                       help="A dictionary of extra parameters")
+    args.add_argument("--den-zlim", type=float, nargs=2,
+                      help="zlim of density (in cm-3)")
+    args.add_argument("--T-zlim", type=float, nargs=2,
+                      help="zlim of temperature (in K)")
+    args.add_argument("--xHII-zlim", type=float, nargs=2,
+                      help="zlim of xHII")
     return args.parse_args()
 
 
@@ -57,10 +54,17 @@ def main(args):
     Main function of plot_projection
 
     """
-    # print(args)
-    # return
 
-    # plt.style.use(['science', 'no-latex'])
+    # put imports inside main() to make -h run faster
+    import yt
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from ramtools import ytfast, Ramses, plotutils, ramses
+
+    try:
+        plt.style.use(['science', 'no-latex'])
+    except:
+        pass
 
     r = Ramses(args.jobdir)
     if args.outs == 'all':
@@ -120,9 +124,15 @@ def main(args):
                                     weight_field=('gas', 'density'))
                     if field in ['den', 'density']:
                         plotutils.den_setup(p)
-                    if 'zlim' in args.params:
-                        if field in args.params['zlim']:
-                            p.set_zlim(thefield, *args.params['zlim'][field])
+                    # if 'zlim' in args.params:
+                    #     if field in args.params['zlim']:
+                    #         p.set_zlim(thefield, *args.params['zlim'][field])
+                    if thefield[1] == "density" and args.den_zlim is not None:
+                        p.set_zlim(thefield, *args.den_zlim)
+                    elif thefield[1] == "temperature" and args.T_zlim is not None:
+                        p.set_zlim(thefield, *args.T_zlim)
+                    elif thefield[1] == "xHII" and args.xHII_zlim is not None:
+                        p.set_zlim(thefield, *args.xHII_zlim)
                     # overplot sink particles
                     if args.sink:
                         is_id = False
