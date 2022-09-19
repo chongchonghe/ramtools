@@ -112,7 +112,8 @@ Examples
         # self.unitDen2Hcc = self.ds1.density_unit * center.mfrac_H / units.mH
         self.kin_ene_in_cgs = self.unit_m * self.unit_l_code**2 / self.unit_t**2
         self.pot_ene_in_cgs = units.G * self.unit_m**2 / self.unit_l_code
-        self.unit_B = util.get_unit_B(self.ds1)
+        # self.unit_B = util.get_unit_B(self.ds1)
+        self.unit_B = util.get_unit_B_new(self.ds1)
         # self.n_colden_H = np.double(self.unitDen2Hcc * self.unit_l)
         return 0
 

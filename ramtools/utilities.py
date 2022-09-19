@@ -180,7 +180,7 @@ def get_sink_mass_from_movie1_for_all_sinks(movie_dir):
         count += 1
     return outs, times, masses
 
-def get_unit_B(ds):
+def get_unit_B_wrong(ds):
     """ Get the unit of B field strength
 
     :math:`1 \ \mathrm{Gauss} = \sqrt{{g} / {cm}} / s, u_B = B^2 / 8 \pi`
