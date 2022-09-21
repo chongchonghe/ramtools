@@ -80,7 +80,8 @@ def hash_path(ds, hash_dict, kind=None):
             json.dump(hash_dict, fi, indent=2)
     return h5new
 
-def SlicePlot(ds, normal=None, fields=None, zlim=None, *args, **kwargs):
+def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
+              zlim=None, tag=None, force_redo=False, *args, **kwargs):
 
     # --- hash
     if isinstance(normal, int):
@@ -88,27 +89,32 @@ def SlicePlot(ds, normal=None, fields=None, zlim=None, *args, **kwargs):
     # ds_repr = str(ds.__repr__())
     # assert "RAMSESDataset" in ds_repr, "ds.__repr__() = " + ds_repr
     ds_repr = os.path.abspath(ds.directory)
+    if isinstance(center, np.ndarray):
+        center = center.tolist()
     hash_dict = dict(
         ds=ds_repr,
         normal=normal,
         fields=fields,
+        center = to_tuple(center),
+        width = width,
         kind="SlicePlot",
+        tag = tag,  # a free tag, used to distinguish different versions
     )
-    if 'center' in kwargs.keys():
-        if isinstance(kwargs['center'], np.ndarray):
-            hash_dict['center'] = kwargs['center'].tolist()
-        else:
-            hash_dict['center'] = kwargs['center']
-    if 'width' in kwargs.keys():
-        if isinstance(kwargs['width'], np.ndarray):
-            hash_dict['width'] = kwargs['width'].tolist()
-        else:
-            hash_dict['width'] = kwargs['width']
-    if zlim is not None:
-        hash_dict['zlim'] = zlim
+    # if 'center' in kwargs.keys():
+    #     if isinstance(kwargs['center'], np.ndarray):
+    #         hash_dict['center'] = kwargs['center'].tolist()
+    #     else:
+    #         hash_dict['center'] = kwargs['center']
+    # if 'width' in kwargs.keys():
+    #     if isinstance(kwargs['width'], np.ndarray):
+    #         hash_dict['width'] = kwargs['width'].tolist()
+    #     else:
+    #         hash_dict['width'] = kwargs['width']
+    # if zlim is not None:
+    #     hash_dict['zlim'] = zlim
     h5fn = hash_path(ds, hash_dict, kind='SlicePlot')
 
-    if GLOBAL_FORCE_REDO or (not os.path.exists(h5fn)):
+    if GLOBAL_FORCE_REDO or force_redo or (not os.path.exists(h5fn)):
         p = yt.SlicePlot(ds, normal, fields, *args, **kwargs)
         if zlim is not None:
             p.set_zlim(fields, *zlim)
@@ -216,6 +222,7 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
         p = ds.proj(field=fields, axis=axis, center=center,
                     weight_field=weight_field,
                     field_parameters={'width': width},
+                    max_level=max_level,
                     )
         p.save_as_dataset(h5fn)
         jsonfn = h5fn.replace(".h5", ".json")

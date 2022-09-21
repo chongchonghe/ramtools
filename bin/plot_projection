@@ -29,6 +29,8 @@ def get_args():
                       "    x,y,z: position in boxlen unit\n"
                       "    integer: use the location of a sink particle with the given index as the center\n"
                      )
+    args.add_argument("-l", "--los", type=float, nargs=3,
+                      help="The line of sight vector, usually face-on to the disk")
     args.add_argument("-w", "--width", default='1',
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
     args.add_argument("-f", "--fields", default='den',
@@ -43,6 +45,12 @@ def get_args():
                       help="Turn on overplotting sink particles")
     args.add_argument("-o", "--overwrite", action="store_true",
                       help="Turn on overwritting")
+    args.add_argument("--overwrite-cache", action="store_true",
+                      help="Turn on overwritting cache files in ytfast")
+    args.add_argument("--no-ytfast", action="store_true",
+                      help="Turn off using ytfast to speedup projection/slice plot")
+    args.add_argument("--no-edgeon", action="store_true",
+                      help="Turn off plotting edge-on view when los is set")
     args.add_argument("-p", "--params", type=dict, default={},
                       help="A dictionary of extra parameters")
     args.add_argument("--den-zlim", type=float, nargs=2,
@@ -118,6 +126,19 @@ def main(args):
     else:
         width = float(args.width)
     os.makedirs(args.to, exist_ok=1)
+    axes = None
+    if args.los is None:
+        axes = args.axes.split(',')
+    else:
+        if args.no_edgeon:
+            axes = ["face"]
+        else:
+            axes = ["face", "edge"]
+        face = np.array(args.los)
+        right = np.cross([0, 0, 1], face)
+        left = -1. * right
+        dires = {"face": [face, left],
+                 "edge": [right, face]}
     for out in outs:
         if not r.exist(out):
             print(f"Skipping frame {out}")
@@ -125,27 +146,61 @@ def main(args):
         ds = r.load_ds(out)
         width = ramses.to_boxlen(width, ds)
         if use_sink_as_center:
-            center = r.get_sink_positions(out)[sink_center] / r.boxlen
+            try:
+                center = r.get_sink_positions(out)[sink_center] / r.boxlen
+                print("center =", center)
+            except ramses.NoSinkParticle:
+                print(f"No sink particle found in out {out}.")
+                continue
         for field in args.fields.split(','):
             if field == "den":
                 thefield = ("gas", "density")
             elif field in ["tem", "temp"]:
                 thefield = ("gas", "temperature")
+            elif field == "grid_level":
+                thefield = ("index", field)
             else:
                 thefield = ("gas", field)
-            for axis in args.axes.split(','):
-                for kind in args.kinds.split(','):
+            for kind in args.kinds.split(','):
+                for axis in axes:
+                    if axis in ['face', 'edge']:
+                        los = dires[axis][0]
+                        north = dires[axis][1]
                     fo = f"{kind}-{axis}-{field}-out{out}.png"
                     if (not args.overwrite) and os.path.exists(os.path.join(args.to, fo)):
-                        print(fo, "exists. Skipping")
+                        print(f"{args.to}/{fo} exists. Skipping")
                         continue
                     if kind == 'slc':
-                        thefunc = ytfast.SlicePlot
-                        p = thefunc(ds, axis, thefield, center=center, width=width)
+                        if axis in ['x', 'y', 'z']:
+                            if args.no_ytfast:
+                                p = yt.SlicePlot(ds, axis, thefield, center=center, width=width)
+                            else:
+                                p = ytfast.SlicePlot(ds, axis, thefield, center=center, width=width,
+                                                     force_redo=args.overwrite_cache)
+                        else:
+                            p = yt.OffAxisSlicePlot(
+                                ds, los, thefield, center=center,
+                                width=width, north_vector=north)
                     elif kind == 'prj':
-                        thefunc = ytfast.ProjectionPlot
-                        p = thefunc(ds, axis, thefield, center=center, width=width,
-                                    weight_field=('gas', 'density'))
+                        if axis in ['x', 'y', 'z']:
+                            if args.no_ytfast:
+                                p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width, 
+                                                      weight_field=('gas', 'density'),
+                                                      # max_level=10,
+                                                      )
+                            else:
+                                try:
+                                    p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width,
+                                                              weight_field=('gas', 'density'),
+                                                              force_redo=args.overwrite_cache)
+                                except yt.utilities.exceptions.YTPixelizeError:
+                                    p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width,
+                                                          weight_field=('gas', 'density'))
+                        else:
+                            p = yt.OffAxisProjectionPlot(
+                                ds, los, thefield, center=center, width=width, 
+                                weight_field=('gas', 'density'), #max_level=l_max,
+                                north_vector=north)
                     if field in ['den', 'density']:
                         plotutils.den_setup(p)
                     # if 'zlim' in args.params:
@@ -157,6 +212,12 @@ def main(args):
                         p.set_zlim(thefield, *args.T_zlim)
                     elif thefield[1] == "xHII" and args.xHII_zlim is not None:
                         p.set_zlim(thefield, *args.xHII_zlim)
+                    elif thefield[1] == "grid_level":
+                        # p.set_cmap(thefield, "tab10")
+                        p.set_cmap(thefield, "tab20")
+                        p.set_log(thefield, False)
+                        # p.set_zlim(thefield, 3.5, 13.5)
+                        p.set_zlim(thefield, -0.5, 19.5)
                     # overplot sink particles
                     if args.sink:
                         is_id = False
@@ -167,7 +228,7 @@ def main(args):
                             p, out, center, width/2, is_id=is_id,
                             zorder='mass', withedge=1, lims=lims)
                     p.save((args.to, fo), mpl_kwargs={"dpi": 300})
-                    print(fo, "saved")
+                    print(f"{args.to}/{fo} saved")
                     plt.close('all')
 
 
