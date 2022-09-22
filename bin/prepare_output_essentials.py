@@ -13,8 +13,7 @@ from __future__ import division, print_function
 import os
 import sys
 import glob
-import center
-from tools import makedir
+# import center
 
 def link(fPath):
     """ Make sure to always work in the root directory when using this
