@@ -34,10 +34,12 @@ def readtime(s):
             flag = True
     return -1
 
-def main(fn, tend=None, N=None, outframe=None):
-    #
+def main(fn, tend=None, N=None, outframe=None, nml=None):
+    
+    if nml is None:
+        nml="run.sink.nml"
     if outframe is not None:
-        nml = f90nml.read("run.sink.nml")
+        nml = f90nml.read(nml)
         touts = nml["OUTPUT_PARAMS"]["tout"]
         tend = touts[outframe - 2]
     else:
@@ -107,10 +109,11 @@ if __name__ == "__main__":
     PARSER.add_argument('ofn', help='name of the .o file')
     PARSER.add_argument('-f', type=int, help='output frame to target for')
     PARSER.add_argument('-tend', type=float, help='tend in code units to target for')
+    PARSER.add_argument('-nml', help='path to the namelist file')
     PARSER.add_argument('-N', type=int, default=5, help='the number of cycles to do one calculate')
     ARGS = PARSER.parse_args()
 
-    main(ARGS.ofn, ARGS.tend, ARGS.N, ARGS.f)
+    main(ARGS.ofn, ARGS.tend, ARGS.N, ARGS.f, ARGS.nml)
 
     # try:
     #     TEND = float(sys.argv[2])
