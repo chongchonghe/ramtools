@@ -327,7 +327,7 @@ class RamPlot(Ramses):
                     y_field=('gas', 'temperature'), z_fields=('gas', 'cell_mass'))
         """
 
-        ytfast.set_data_dir(os.path.join(self.data_dir, 'profiles'))
+        ytfast._set_data_dir(os.path.join(self.data_dir, 'profiles'))
         if not os.path.exists(figdir):
             os.makedirs(figdir)
         for out in self.get_all_outputs():
@@ -404,7 +404,7 @@ def plot_a_region(
     from matplotlib import colors
 
     r = ram
-    ytfast.set_data_dir(r.data_dir) #os.path.join(r.ramses_dir, 'h5_data'))
+    ytfast._set_data_dir(r.data_dir) #os.path.join(r.ramses_dir, 'h5_data'))
     assert width is not None
     width = to_boxlen(width, r.ds1)
     if isinstance(time_offset, int):

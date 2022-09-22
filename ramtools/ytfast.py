@@ -36,7 +36,7 @@ except:
 DATA_DIR = '.'
 GLOBAL_FORCE_REDO = False
 
-def dict_hash(dictionary: Dict[str, Any]) -> str:
+def _dict_hash(dictionary: Dict[str, Any]) -> str:
     """MD5 hash of a dictionary."""
     dhash = hashlib.md5()
     # Sort arguments so {'a': 1, 'b': 2} is the same as {'b': 2, 'a': 1}
@@ -44,32 +44,32 @@ def dict_hash(dictionary: Dict[str, Any]) -> str:
     dhash.update(encoded)
     return dhash.hexdigest()
 
-def set_data_dir(datadir):
+def _set_data_dir(datadir):
     global DATA_DIR
     DATA_DIR = datadir
 
-def set_global_force_redo(redo=True):
+def _set_global_force_redo(redo=True):
     global GLOBAL_FORCE_REDO
     GLOBAL_FORCE_REDO = redo
 
-def to_tuple(x):
+def _to_tuple(x):
     if isinstance(x, list):
         return tuple(x)
     return x
 
-def get_jobdir_and_out_from_ds(ds):
+def _get_jobdir_and_out_from_ds(ds):
     """Given ds, which has ds.directory = '/path/Job1/output_00002', return
     /path/Job1 and output_00002 """
     outdir = os.path.abspath(ds.directory)
     jobdir = os.path.dirname(outdir)
     return jobdir, os.path.basename(outdir)
 
-def hash_path(ds, hash_dict, kind=None):
-    jobdir, outname = get_jobdir_and_out_from_ds(ds)
+def _hash_path(ds, hash_dict, kind=None):
+    jobdir, outname = _get_jobdir_and_out_from_ds(ds)
     jobpath = jobdir
     h5new_dir = f"{jobpath}/cache/ytfast/yt{yt.__version__}/{outname}"
     os.makedirs(h5new_dir, exist_ok=True)
-    hashstr = dict_hash(hash_dict)
+    hashstr = _dict_hash(hash_dict)
     if kind is not None:
         hashstr = kind + '-' + hashstr
     h5new = f"{h5new_dir}/{hashstr}.h5"
@@ -82,6 +82,23 @@ def hash_path(ds, hash_dict, kind=None):
 
 def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
               zlim=None, tag=None, force_redo=False, *args, **kwargs):
+    """ A wrapper to yt.SlicePlot to use cache file to speed up
+    re-production of a figure with different aesthetic settings like
+    new colormap, different zlim, overplotting sink particles, etc.
+    For the use of yt.SlicePlot, check `the official documentation
+    <https://yt-project.org/doc/reference/api/yt.visualization.plot_window\
+    .html#yt.visualization.plot_window.SlicePlot>`_
+
+    Args:
+        force_redo (bool): toggle always remake the figure and write a new .h5
+            file no matter the .h5 exits or not.
+        **kwargs: more kwargs passed to yt.SlicePlot
+
+    Returns:
+        A PWViewerMPL object containing the plot. See the official
+        documentation of YT for details.
+
+    """
 
     # --- hash
     if isinstance(normal, int):
@@ -95,7 +112,7 @@ def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
         ds=ds_repr,
         normal=normal,
         fields=fields,
-        center = to_tuple(center),
+        center = _to_tuple(center),
         width = width,
         kind="SlicePlot",
         tag = tag,  # a free tag, used to distinguish different versions
@@ -112,7 +129,7 @@ def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
     #         hash_dict['width'] = kwargs['width']
     # if zlim is not None:
     #     hash_dict['zlim'] = zlim
-    h5fn = hash_path(ds, hash_dict, kind='SlicePlot')
+    h5fn = _hash_path(ds, hash_dict, kind='SlicePlot')
 
     if GLOBAL_FORCE_REDO or force_redo or (not os.path.exists(h5fn)):
         p = yt.SlicePlot(ds, normal, fields, *args, **kwargs)
@@ -124,62 +141,57 @@ def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
     data = yt.load(h5fn)
     return yt.SlicePlot(data, normal, fields, *args, **kwargs)
 
-def SlicePlot_cacherun(ds, *args, **kwargs):
-    """What is this???"""
-    # ds = RamsesSnapshot(jobdir, out)
-
-    def slice_ds(ds, *args, **kwargs):
-        return yt.SlicePlot(ds, *args, **kwargs).data_source
-
-    class T:
-        def __init__(self, _ds):
-            self._ds = _ds
-            self._folder = os.path.dirname(_ds.directory)
-            self._outnum = int(os.path.basename(_ds.directory)[-5:])
-        def CachePath(self):
-            pathname = self._folder
-            # Put the cache files in the simulation folder itself
-            path = f"{pathname}/cache/cache/yt{yt.__version__}/output" \
-                   f"_{self._outnum:05d}/"
-            if not os.path.exists(path):
-                try:
-                    os.makedirs(path)
-                except:
-                    pass # Probably fine. Probably.
-            return path
-
-    fakesnap = T(ds)
-    # new_ds = slice_ds(ds, *args, **kwargs)
-    new_ds = CacheRun(slice_ds)(fakesnap, *args, **kwargs)
-    return yt.SlicePlot(ds, *args, **kwargs, data_source=new_ds)
+# def SlicePlot_cacherun(ds, *args, **kwargs):
+#     """What is this???"""
+#     # ds = RamsesSnapshot(jobdir, out)
+#
+#     def slice_ds(ds, *args, **kwargs):
+#         return yt.SlicePlot(ds, *args, **kwargs).data_source
+#
+#     class T:
+#         def __init__(self, _ds):
+#             self._ds = _ds
+#             self._folder = os.path.dirname(_ds.directory)
+#             self._outnum = int(os.path.basename(_ds.directory)[-5:])
+#         def CachePath(self):
+#             pathname = self._folder
+#             # Put the cache files in the simulation folder itself
+#             path = f"{pathname}/cache/cache/yt{yt.__version__}/output" \
+#                    f"_{self._outnum:05d}/"
+#             if not os.path.exists(path):
+#                 try:
+#                     os.makedirs(path)
+#                 except:
+#                     pass # Probably fine. Probably.
+#             return path
+#
+#     fakesnap = T(ds)
+#     # new_ds = slice_ds(ds, *args, **kwargs)
+#     new_ds = CacheRun(slice_ds)(fakesnap, *args, **kwargs)
+#     return yt.SlicePlot(ds, *args, **kwargs, data_source=new_ds)
 
 def ProjectionPlot(ds, axis, fields, center='c', width=None,
                    axes_unit=None, weight_field=None, max_level=None,
-                   origin='center-window', tag=None, always_write_h5=False,
-                   force_redo=False,
-                   **kwargs):
-    """ Same as yt.ProjectionPlot but use intermediate data file to speed up
-    re-generating the same figure.
+                   tag=None, force_redo=False, **kwargs):
+    """ A wrapper to yt.ProjectionPlot to use cache file to speed up
+    re-production of a figure with different aesthetic settings like
+    new colormap, different zlim, overplotting sink particles, etc.
+    For the use of yt.ProjectionPlot, check `the official documentation
+    <https://yt-project.org/doc/reference/api/yt.visualization.plot_window\
+    .html#yt.visualization.plot_window.ProjectionPlot>`_
+
+    The following Args are in addition to the parameters of yt.ProjectionPlot.
 
     Args:
-        ds:
-        axis:
-        fields:
-        center:
-        width:
-        axes_unit:
-        weight_field:
-        max_level:
-        origin:
-        tag (str): a tag to this specific job
-        always_write_h5 (bool): toggle always write a new .h5 data no matter the .h5
-            already exits or not
+        force_redo (bool): toggle always remake the figure and write a new .h5
+            file no matter the .h5 exits or not.
         **kwargs: more kwargs passed to yt.ProjectionPlot
 
     Returns:
+        A PWViewerMPL object containing the plot. See the official
+        documentation of YT for details.
 
     """
-
     if isinstance(axis, int):
         axis = {0:'x', 1:'y', 2:'z'}[axis]
     ds_repr = str(ds.__repr__())
@@ -192,7 +204,7 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
         ds = ds_repr,
         axis = axis,
         fields = fields,
-        center = to_tuple(center),
+        center = _to_tuple(center),
         width = width,
         weight_field = weight_field,
         max_level = max_level,
@@ -205,7 +217,7 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     h5new_dir = f"{jobdir}/cache/ytfast/{yt.__version__}"
     if not os.path.exists(h5new_dir):
         os.makedirs(h5new_dir)
-    hashstr = dict_hash(hash_dict)
+    hashstr = _dict_hash(hash_dict)
     h5new = f"{h5new_dir}/{hashstr}.h5"
     # h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
     h5fn = h5new
@@ -216,7 +228,7 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     if os.path.exists(h5old) and not os.path.exists(h5new):
         os.system(f"mv {h5old} {h5new}")
     # ---------------
-    if always_write_h5 or force_redo or (not os.path.exists(h5fn)):
+    if force_redo or (not os.path.exists(h5fn)):
         # if not os.path.isdir(DATA_DIR):
         #     os.makedirs(DATA_DIR)
         p = ds.proj(field=fields, axis=axis, center=center,
@@ -246,18 +258,18 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
               define_field=None, is_cb=True, cmap="viridis",
               cb_label='', f=None, ax=None, ret='imshow',
               is_pcc=False,):
-    """
+    """ A wrapper to yt.PhasePlot to use cache file to speed up
+    re-production of a figure with different aesthetic settings like
+    new colormap, different zlim, etc. For the use of yt.PhasePlot, check `the
+    official documentation <https://yt-project.org/doc/reference/api/yt\
+    .visualization.profile_plotter.html?highlight=phaseplot#yt.visualization\
+    .profile_plotter.PhasePlot>`_
+
+    The following Args are in addition to the parameters of yt.PhasePlot.
 
     Args:
-        # args passed to yt.PhasePlot
-        data_source (YTSelectionContainer Object)
-        x_field (tuple)
-        y_field (tuple)
-        z_fields (list of tuples)
-        weight_field (tuple)
-        # args passed to yt.PhasePlot
         zlims (list_like): lims of z_fields
-        force_redo (bool): toggle always make h5 data
+        force_redo (bool): toggle always remake the figure
         define_field (func): function to define a new field
         is_cb (bool): toggle show colorbar (default: True)
         cb_label (str): colorbar label (default: '')
@@ -299,7 +311,7 @@ def PhasePlot(data_source, x_field, y_field, z_fields,
     )
     if is_pcc:
         hash_dict["is_pcc"] = True
-    hashstr = dict_hash(hash_dict)
+    hashstr = _dict_hash(hash_dict)
     h5fn = os.path.join(DATA_DIR, hashstr + ".h5")
     jsonfn = os.path.join(DATA_DIR, hashstr + ".json")
     if ISLOG: Logger.info(f"Log 1, dt = {time() - t1}")
@@ -364,32 +376,27 @@ def ProfilePlot(data_source, x_field, y_fields, weight_field=('gas', 'mass'),
                 plot_spec=None, x_log=True, y_log=True, xlims=[None, None],
                 force_redo=False, define_field=None, f=None, ax=None,
                 ret='plot', mpl_kwargs={}):
-    """
-    Make 1D profile plot (histogram). Will save intermediate data as h5 files
-    in DATA_DIR. The second time use of this function will be very fast.
+    """ A wrapper to yt.ProfilePlot to use cache file to speed up
+    re-production of a figure with different aesthetic settings. For the use
+    of yt.ProfilePlot, check `the official documentation\
+    <https://yt-project.org/doc/reference/api/yt.visualization\
+    .profile_plotter.html?highlight=phaseplot#yt.visualization\
+    .profile_plotter.ProfilePlot>`_
+
+    The following Args are in addition to the parameters of yt.ProfilePlot.
 
     Args:
-        data_source:
-        x_field:
-        y_fields:
-        weight_field:
-        n_bins:
-        accumulation:
-        fractional:
-        label:
-        plot_spec:
-        x_log:
-        y_log:
-        xlims:
-        force_redo:
-        define_field: (function) a function to define a new field.
-            define_field(ds).
-        f: plt.figure
-        ax: plt.axis
-        ret: (str) return type, one of ['plot', 'data']. Default: 'plot'
+        xlims (list_like): x limits
+        force_redo (bool): toggle always remake the figure
+        define_field (func): a function to define a new field.
+        f (plt.figure): figure to plot on (default: None)
+        ax (plt.axis): axis to plot on (default: None)
+        ret (str): what to return (default: 'plot'). One of ['plot', 'data']
         mpl_kwargs: kwargs to plt.plot
 
     Returns:
+        If ret == 'plot', return a tuple (f, ax)
+        If ret == 'data', return a tuple (x, y)
 
     """
 
@@ -411,7 +418,7 @@ def ProfilePlot(data_source, x_field, y_fields, weight_field=('gas', 'mass'),
     #     hash_params['y_log'] = y_log
     if not xlims == [None, None]:
         hash_params['xlims'] = xlims
-    hashstr = dict_hash(hash_params)
+    hashstr = _dict_hash(hash_params)
     h5fn = os.path.join(DATA_DIR, '1dprofile-' + hashstr + ".h5")
     jsonfn = os.path.join(DATA_DIR, '1dprofile-' + hashstr + ".json")
     if GLOBAL_FORCE_REDO or force_redo or (not os.path.exists(h5fn)):

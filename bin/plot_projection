@@ -4,55 +4,69 @@ For documentation, check docs/index.rst
 """
 
 import os, sys
-import yt
-import numpy as np
-import matplotlib.pyplot as plt
-from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
 import argparse
 import warnings
-from glob import glob
 warnings.filterwarnings("ignore")
 
 def get_args():
-    args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
+    args = argparse.ArgumentParser(description=("""
+A program to efficiently make slices/projections plots of a RAMSES simualtion. 
+
+Quick examples:
+>>> plot_projection ..
+>>> plot_projection . 10-20 z -t figures
+>>> plot_projection . 10-20 x,y -t figures -c 0.6,0.6,0.6 -w 10,pc \
+-f den,temp -k slc --sink --den-zlim 1e4 1e10 --T-zlim 10 1e4
+"""),
+        formatter_class=argparse.RawTextHelpFormatter)
     args.add_argument("jobdir", nargs="?", default="..",
-                      help="Path to the simulation directory")
+                      help="(Default '..') Path to the simulation directory")
     args.add_argument("outs",  nargs="?", default="all",
-                      help="Output frames. If 'all', do all output frames. "
-                      "Examples: '10', '10,11,13', '10-20', '10-20-2'.")
+                      help="(Default 'all') Output frames. If 'all', do all "
+                           "output frames. "
+                      "Examples: '10', '10,11,13', '10-20', '10-20-2'")
     args.add_argument("axes", nargs="?", default="x,y,z",
-                      help="The line of sight. Examples: 'x', 'x,y,z'")
+                      help="(Default 'x,y,z') The line of sight. Examples: "
+                           "'x', 'x,y,z'")
     args.add_argument("-c", "--center", default='c',
-                      help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'\n"
+                      help="(Default 'c') The center.\n"
                       "Cases:\n"
-                      "    'c': 0.5, 0.5, 0.5\n"
-                      "    x,y,z: position in boxlen unit\n"
-                      "    integer: use the location of a sink particle with the given index as the center\n"
+                      "    'c': = [0.5, 0.5, 0.5]\n"
+                      "    x,y,z: position in boxlen unit, e.g. 0.5,0.5,0.5\n"
+                      "    a single integer: use the location of a sink "
+                           "particle with the given index as the center"
                      )
     args.add_argument("-l", "--los", type=float, nargs=3,
-                      help="The line of sight vector, usually face-on to the disk")
+                      help="The line of sight vector, usually the face-on "
+                           "vector of the disk. When this is set, will plot a "
+                           "face-on and edge view that are perpendicular to "
+                           "each other."
+                      )
+    args.add_argument("--no-edgeon", action="store_true",
+                      help="Turn off plotting edge-on view when los is set")
     args.add_argument("-w", "--width", default='1',
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
     args.add_argument("-f", "--fields", default='den',
                       help="The fields to plot. Examples: 'den', 'den,temp'. Default: 'den'")
     args.add_argument("-t", "--to", default='./projections',
-                      help="The destination directory. Default: '.'")
+                      help="The destination directory. Default: "
+                           "'./projections'")
     args.add_argument("-k", "--kinds", default='slc,prj',
-                      help="Plot types. Examples: 'prj', 'prj,slc'. Default: 'slc'")
+                      help="Plot types, either 'slc', 'prj', or 'slc,"
+                           "prj' (default)")
     args.add_argument("-s", "--sink", action="store_true",
                       help="Turn on overplotting sink particles")
-    args.add_argument("--mass-lim", type=float, nargs="+",
-                      help="Turn on overplotting sink particles")
+    args.add_argument("--mass-lim", type=float, nargs=2,
+                      help="Colormap limits (in Msun) of the sink particles")
     args.add_argument("-o", "--overwrite", action="store_true",
-                      help="Turn on overwritting")
+                      help="Turn on overwritting existing figures. If left "
+                           "off (default), will skip existing files.")
     args.add_argument("--overwrite-cache", action="store_true",
-                      help="Turn on overwritting cache files in ytfast")
+                      help="Turn on overwritting cache files used by ytfast")
     args.add_argument("--no-ytfast", action="store_true",
                       help="Turn off using ytfast to speedup projection/slice plot")
-    args.add_argument("--no-edgeon", action="store_true",
-                      help="Turn off plotting edge-on view when los is set")
-    args.add_argument("-p", "--params", type=dict, default={},
-                      help="A dictionary of extra parameters")
+    # args.add_argument("-p", "--params", type=dict, default={},
+    #                   help="A dictionary of extra parameters")
     args.add_argument("--den-zlim", type=float, nargs=2,
                       help="zlim of density (in cm-3)")
     args.add_argument("--T-zlim", type=float, nargs=2,
@@ -72,7 +86,8 @@ def main(args):
     import yt
     import numpy as np
     import matplotlib.pyplot as plt
-    from ramtools import ytfast, Ramses, plotutils, ramses
+    from glob import glob
+    from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
 
     try:
         plt.style.use(['science', 'no-latex'])

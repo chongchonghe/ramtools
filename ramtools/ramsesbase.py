@@ -1,11 +1,8 @@
 
 import os
-import warnings
-import json
 import numpy as np
-from matplotlib.pyplot import cm
-import f90nml
 import yt
+from matplotlib.pyplot import cm
 try:
     yt.set_log_level(50)
 except:
@@ -46,25 +43,20 @@ Examples
 >>> mass = par[:, 0]
 >>> print("Total mass =", mass.sum())
 
->>> rt.set_RAM_DIR("../tests")
->>> ram = rt.Ramses(jobid="1")
+>>> ram = rt.Ramses("Job1", fields=FIELDS)
 
 """
 
     def __init__(self, jobdir, fields=None):
         """
-        Parameters
-        ----------
-        jobdir: str 
-            absolute/relative path to the job 
-        dirname: str (default None)
-            the basename of the job directory. You need to do ramtools.set_RAM_DIR("path/to/a/folder/of/RAMSES/jobs")
-        fields: dict
-            A dictionary of RAMSES FIELDS
+        Args:
+            jobdir (str): absolute/relative path to the job
+            fields (dict): (default: None) the basename of the job directory.
+                You need to do ramtools.set_RAM_DIR(
+                "path/to/a/folder/of/RAMSES/jobs")
 
-        Returns
-        -------
-        0 if successfully loaded a ds; 1 otherwise
+        Returns:
+            0 if successfully loaded a ds; 1 otherwise
 
         """
         self.jobPath = jobdir
@@ -79,7 +71,9 @@ Examples
 
     def get_ds(self):
         """Load the first output out there. This is necessary to get the units
-        and other things"""
+        and other things
+
+        """
         for i in range(1, 100):
             if os.path.isfile(self.get_info_path(i)):
                 self.ds1 = self.load_ds(i)
@@ -97,6 +91,7 @@ Examples
         6. unit_m: mass unit in cgs
         7. unit_m_in_Msun: mass unit in Msun
         8. kin_ene_in_cgs: kinectic energy in cgs
+
         """
         if self.ds1 is None:
             print("Failed to load an output.")
@@ -185,7 +180,7 @@ Examples
 
         return self.get_sink_particles(out)[:, 1:4]
 
-    def get_sink_masses(self, outputID=None):
+    def get_sink_masses(self, out):
         """ Get sink masses in M_sun of one output (not shifted)
         Replacing get_sink_mass
 
@@ -200,17 +195,16 @@ Examples
             FileNotFoundError
             NoSinkParticle
 
-
         """
 
-        return self.get_sink_particles(outputID)[:, 0] * self.unit_m / units.Msun
+        return self.get_sink_particles(out)[:, 0] * self.unit_m / units.Msun
 
-    def get_time(self, outputID, readinfo=False):
+    def get_time(self, out, readinfo=False):
         """ Get the time in Myr (not substracting t_relax) of data_id.
         """
 
         fname = "{0}/output_{1:05d}/info_{1:05d}.txt".format(
-            self.jobPath, outputID)
+            self.jobPath, out)
         if not os.path.isfile(fname):
             return -1
         # t = yt.load(fname)['time']
@@ -241,3 +235,70 @@ Examples
             if os.path.isfile(fname):
                 return i
         return 0
+
+    def overplot_sink(self, p, out, plot_args={}):
+        """Over plot sink particles (as green crosses) on top of a YT
+        slice/project plot
+
+        Args:
+            p (yt.sliceplot or yt.projectplot): the plot to overplot on
+            out (int): the output frame
+            plot_args (dict):
+
+        """
+
+        _plot_args = {'color': 'g'}
+        plot_args.update(_plot_args)
+        try:
+            poss = self.get_sink_positions(out) / self.boxlen
+        except NoSinkParticle or FileNotFoundError:
+            poss = []
+        for pos in poss:
+            p.annotate_marker(pos, coord_system='data', plot_args=plot_args)
+
+    def overplot_sink_with_id(self, plot, out, center, radius, is_id=True,
+                              colors=cm.Greens, withedge=False, zorder='time',
+                              lims=[1e-2, 1e2]):
+        """
+        Args:
+            plot (yt plot): the plot to overplot on
+            out (int): the output frame
+            center (tuple or list): the center of the plot in boxlen units
+            radius (float): the radius (half width) of the box around
+                the center defining the domain of interest, in boxlen units
+            weight (str): give weights to the annotates of the sink particles
+                by the 'time' of creation, or by their 'mass'
+
+        """
+
+        try:
+            sposs = self.get_sink_positions(out) / self.boxlen
+            masses = self.get_sink_masses(out)
+            indices = np.arange(len(masses))
+            _is_inside = np.max(np.abs(sposs - center), axis=1) < radius
+        except NoSinkParticle:
+            sposs = []
+            masses = []
+        for i in range(len(masses)):
+            if not _is_inside[i]:
+                continue
+            m, pos, indice = masses[i], sposs[i], indices[i]
+            mass_scaled = (np.log10(m/lims[0]))/np.log10(lims[1]/lims[0])
+            if mass_scaled > 1.:
+                mass_scaled = 1.
+            if mass_scaled < 0.:
+                mass_scaled = 0.
+            # print(f"mass_scaled={mass_scaled}")
+            zo = {'time': i + 10, 'mass': m + 10}[zorder]
+            plot.annotate_marker(
+                pos, 'o', coord_system='data',
+                plot_args={'color': colors(mass_scaled),
+                           's': 30,
+                           'zorder': zo,
+                           'linewidths': 0.3,
+                           'edgecolors': 'k' if withedge else 'face'})
+            if is_id:
+                plot.annotate_text(pos, str(indices[i]), coord_system='data',
+                                   text_args={'color': 'k', 'va': 'center', 'ha': 'center',
+                                              'size': 8, 'zorder': i+10+0.5})
+

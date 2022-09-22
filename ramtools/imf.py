@@ -788,16 +788,19 @@ class Sink(Ramses):
                                       is_met=False,
                                       is_text_cloud_param=True,
                                       **kwargs):
-        """Plot one single line of IMF, Kroupa line (optional), set title
-        (optional), and add text (optional)
+        """Plot one single line of the IMF.
 
-        Parameters:
-        is_text:
-            (bool) Control if or not to add texts at topleft (gas mass and den) and topright corner.
-        is_met:
-            (bool) Only when is_text = True. Control if or not only add text at topright corner.
+        Plot one single line of the IMF., optionally add a Kroupa line,
+        set title, and add text.
+
+        Parameters
+        ----------
+        is_text: bool
+            Control if or not to add texts at topleft (gas mass and den) and topright corner.
+        is_met: bool
+            Only when is_text = True. Control if or not only add text at topright corner.
+
         """
-
         # s = sink.Sink(jobid)
         # t = s.get_t_over_tff()
         try:
