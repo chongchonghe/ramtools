@@ -89,6 +89,9 @@ def check_and_update_all_jobs():
 def main(jobPath):
 
     os.chdir(jobPath)
+    if len(glob.glob("./output_0*")) == 0:
+        print("No outputs found. Please make sure {} is a valid path to a RAMSES job".format(jobPath))
+        return
     os.makedirs("output_tmp", exist_ok=True)
     os.chdir("output_tmp")
     tmpPath = os.path.abspath(".")
