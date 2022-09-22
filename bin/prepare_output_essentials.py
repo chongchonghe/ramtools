@@ -22,6 +22,7 @@ def link(fPath):
     fName = os.path.basename(fPath)
     if not os.path.exists(fName):
         os.system("ln -s " + fPath)
+        print(fPath, "linked")
 
 def link_output(jobPath, outputID):
     tmpPath = os.path.abspath(".")
@@ -88,7 +89,7 @@ def check_and_update_all_jobs():
 def main(jobPath):
 
     os.chdir(jobPath)
-    os.makedirs("output_tmp", exists_ok=True)
+    os.makedirs("output_tmp", exist_ok=True)
     os.chdir("output_tmp")
     tmpPath = os.path.abspath(".")
     for i in glob.glob("../*.nml"):
