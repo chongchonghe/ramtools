@@ -7,7 +7,7 @@ from ramtools import ytfast
 from glob import glob
 
 def fastplot(job):
-    # ytfast.set_data_dir("./tests/h5_data")
+    # ytfast._set_data_dir("./tests/h5_data")
     # print("\nTest: ytfast.ProjectionPlot")
     # rp = rt.RamsesBase(job)
     # t1 = time()
@@ -43,7 +43,7 @@ def fastplot(job):
 
 def fastplot_phase():
     from ramtools import ytfast
-    ytfast.set_data_dir("./tests/h5_data")
+    ytfast._set_data_dir("./tests/h5_data")
     print("\nTest 5: fast plotting")
     rp = rt.Ramses("tests/Job2")
     unitB = rp.unit_B

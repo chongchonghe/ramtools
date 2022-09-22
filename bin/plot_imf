@@ -3,10 +3,13 @@
 import os, sys
 import yt
 import numpy as np
+from numpy.linalg import norm
 import matplotlib.pyplot as plt
-from ramtools import ytfast, Ramses, plotutils, imf, NoSinkParticle
+from ramtools import ytfast, ramses, Ramses, plotutils, imf, NoSinkParticle, ramsesbase, \
+        utilities as ut
 import argparse
 import warnings
+from glob import glob
 warnings.filterwarnings("ignore")
 
 plt.style.use(['science', 'no-latex'])
@@ -20,7 +23,7 @@ def get_args():
                       "Examples: '10', '10,11,13', '10-20'.")
     args.add_argument("-c", "--center", default='c',
                       help="The center. Examples: 'c', '0.5,0.5,0.5'. Default: 'c'")
-    args.add_argument("-w", "--width", default='1',
+    args.add_argument("-w", "--width", default='inf',
                       help="The width of the view. Examples: '1', '1000,AU'. Default: '1'")
     args.add_argument("-t", "--to", default='./MF',
                       help="The destination directory. Default: '.'")
@@ -32,14 +35,52 @@ def get_args():
                       help="Default: totmass, = sum(sink_masses)")
     args.add_argument("--kroupa-min", default="min",
                       help="Default: sinkmin, = max(min(sink_masses), 10**-1.25)")
+    args.add_argument("--overwrite", action="store_true",
+                      help="Toggle overwrite existing figures.")
 
     return args.parse_args()
 
 
 def main(args):
     os.makedirs(args.to, exist_ok=1)
-    os.makedirs(os.path.join(args.to, "png"), exist_ok=1)
+    os.makedirs(os.path.join(args.to, "pdfs"), exist_ok=1)
+
+    use_sink_as_center = False
+    if args.center == 'c':
+        center = [0.5, 0.5, 0.5]
+    elif args.center == 'zoomc':    # use zoom center
+        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
+        if len(nmls) == 0:
+            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
+            return
+        nml = nmls[0]
+        print(f"Reading center from namelist file {nml}")
+        center = ut.read_zoom_center(nml)
+    elif ',' in args.center:
+        center = [float(i) for i in args.center.split(',')]
+    else:
+        use_sink_as_center = True
+        sink_center = int(args.center)
+
+    if 'zoomr' in args.width:
+        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
+        if len(nmls) == 0:
+            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
+            return
+        nml = nmls[0]
+        print(f"Reading width from namelist file {nml}")
+        idx = -1
+        if len(args.width) > 5:
+            idx = int(args.width[5:])
+        width = ut.read_zoom_radius(nml, idx) * 2
+    elif ',' in args.width:
+        p1, p2 = args.width.split(',')
+        width = (float(p1), p2)
+    else:
+        width = float(args.width)
+
     s = imf.Sink(args.jobdir)
+    width = ramsesbase.to_boxlen(width, s.ds1)
     r = s
     if args.outs == 'all':
         outs = r.get_all_outputs()
@@ -55,15 +96,36 @@ def main(args):
         else:
             outs = [int(i) for i in args.outs.split(',')]
     for out in outs:
+        fn = f"{args.to}/imf_out_{out}.png"
+        if not args.overwrite and os.path.exists(fn):
+            print(f"{fn} exists. Skipped")
+            continue
+        if use_sink_as_center:
+            try:
+                center = r.get_sink_positions(out)[sink_center] / r.boxlen
+                print("center =", center)
+            except ramses.NoSinkParticle:
+                print(f"No sink particle found in out {out}.")
+                continue
         smin = args.kroupa_min
         smax = args.kroupa_max
         try:
             masses = s.get_sink_masses(out)
+            pos = s.get_sink_positions(out) / s.boxlen
         except NoSinkParticle:
             print("No sink particles found in frame", out)
             continue
-        except FileNotFound:
+        except FileNotFoundError:
             continue
+        dists = []
+        m_inside = []
+        for i in range(len(masses)):
+            if np.max(np.abs(pos[i] - center)) <= width / 2:
+                m_inside.append(masses[i])
+            dists.append(norm(pos[i] - center))
+        # print a log
+        print(f"In frame {out}, the distances of the stars to the center are")
+        print(dists)
         if smin == "min":
             smin = np.min(masses)
         else:
@@ -74,11 +136,10 @@ def main(args):
             smax = np.max(masses)
         else:
             smax = float(smax)
-        f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=masses,
+        f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=m_inside,
                                  kroupa_kwargs={"m_min": smin, "m_max": smax})
-        fn = f"{args.to}/imf_out_{out}.pdf"
-        f.savefig(fn)
-        f.savefig(f"{args.to}/png/imf_out_{out}.png", dpi=300)
+        f.savefig(fn, dpi=300)
+        f.savefig(f"{args.to}/pdfs/imf_out_{out}.pdf")
         print(fn, 'saved')
     return
 

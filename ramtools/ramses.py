@@ -10,25 +10,15 @@ from . import center
 from . import plotutils as pltu
 from .utilities import my_yt_load
 from .ramsesbase import *
+import warnings
+import f90nml
 
 RAM_DIR = None
 
 class Ramses(RamsesBase):
-    """This is the core of ramtools. Most of the times, start using ramtools
-by claiming this class.
-
-Examples
---------
->>> import ramtools as rt
->>> ram = rt.Ramses("../tests/Job_test")
->>> par = ram.get_sink_particles(1)
->>> mass = par[:, 0]
->>> print("Total mass =", mass.sum())
-
->>> rt.set_RAM_DIR("../tests")
->>> ram = rt.Ramses(jobid="1")
-
-"""
+    """Inherit from RamsesBase for the use of the author's personal use. The
+    methods defined in this class may not work for another person's RAMSES
+    simulations."""
 
     def __init__(self, jobdir=None, jobid=None, ram_dir=None, fields=None):
         """Declare a Ramses instance for a given job. The job can be
@@ -39,14 +29,12 @@ Examples
         3. ramtools.set_RAM_DIR(`ram_dir`); r = Ramses(jobid = `_id`).
 
         Args:
-            jobdir : str
-                relative/absolute path to the job directory
-            jobid : str
-                jobid, postfix to 'Job' to get the job directory name (in `ram_dir`)
-            ram_dir : str
-                the base directory for the RAMSES jobs
-        """
+            jobdir (str): relative/absolute path to the job directory
+            jobid (str): jobid, postfix to 'Job' to get the job directory
+                name (in `ram_dir`)
+            ram_dir (str): the base directory for the RAMSES jobs
 
+        """
         if jobdir is not None:
             jobPath = jobdir
             jobid = os.path.basename(jobdir)[3:]
@@ -173,72 +161,6 @@ Examples
                     #par = parnew
                     m0 = mnew
 
-    def overplot_sink(self, p, out, plot_args={}):
-        """Over plot sink particles (as green crosses) on top of a YT
-        slice/project plot
-
-        Args:
-            p (yt.sliceplot or yt.projectplot): the plot to overplot on
-            out (int): the output frame
-            plot_args (dict):
-
-        """
-
-        _plot_args = {'color': 'g'}
-        plot_args.update(_plot_args)
-        try:
-            poss = self.get_sink_positions(out) / self.boxlen
-        except NoSinkParticle or FileNotFoundError:
-            poss = []
-        for pos in poss:
-            p.annotate_marker(pos, coord_system='data', plot_args=plot_args)
-
-    def overplot_sink_with_id(self, plot, out, center, radius, is_id=True,
-                              colors=cm.Greens, withedge=False, zorder='time',
-                              lims=[1e-2, 1e2]):
-        """
-        Args:
-            plot (yt plot): the plot to overplot on
-            out (int): the output frame
-            center (tuple or list): the center of the plot in boxlen units
-            radius (float): the radius (half width) of the box around
-                the center defining the domain of interest, in boxlen units
-            weight (str): give weights to the annotates of the sink particles
-                by the 'time' of creation, or by their 'mass'
-
-        """
-
-        try:
-            sposs = self.get_sink_positions(out) / self.boxlen
-            masses = self.get_sink_masses(out)
-            indices = np.arange(len(masses))
-            _is_inside = np.max(np.abs(sposs - center), axis=1) < radius
-        except NoSinkParticle:
-            sposs = []
-            masses = []
-        for i in range(len(masses)):
-            if not _is_inside[i]:
-                continue
-            m, pos, indice = masses[i], sposs[i], indices[i]
-            mass_scaled = (np.log10(m/lims[0]))/np.log10(lims[1]/lims[0])
-            if mass_scaled > 1.:
-                mass_scaled = 1.
-            if mass_scaled < 0.:
-                mass_scaled = 0.
-            # print(f"mass_scaled={mass_scaled}")
-            zo = {'time': i + 10, 'mass': m + 10}[zorder]
-            plot.annotate_marker(
-                pos, 'o', coord_system='data',
-                plot_args={'color': colors(mass_scaled),
-                           's': 30,
-                           'zorder': zo,
-                           'linewidths': 0.3,
-                           'edgecolors': 'k' if withedge else 'face'})
-            if is_id:
-                plot.annotate_text(pos, str(indices[i]), coord_system='data',
-                                   text_args={'color': 'k', 'va': 'center', 'ha': 'center',
-                                             'size': 8, 'zorder': i+10+0.5})
-
     def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left',
                           **kwargs):
         """
@@ -289,6 +211,3 @@ Examples
         if data.ndim == 1:
             data = np.array([data])
         return data[:, 1:8]
-
-
-

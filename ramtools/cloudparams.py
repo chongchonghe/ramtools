@@ -62,7 +62,8 @@ def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
         E_therm = (3 / 2 * press * reg['cell_volume']).sum()
         return E_therm
     if var == 'mag_ene':
-        unit_B = util.get_unit_B(ds)
+        # unit_B = util.get_unit_B(ds)
+        unit_B = util.get_unit_B_new(ds)    # CORRECTION on 2022-9-15 by CCH
         bx_avg = (reg['x-Bfield-left'] + reg[
             'x-Bfield-right']) / 2 * unit_B
         by_avg = (reg['y-Bfield-left'] + reg[
@@ -166,7 +167,7 @@ def describe_cloud(jobfolder, out, variables, filter):
         # task = CacheRun(get_cloud_value)
         # task.ForceReplaceCache()
         # y = task.Run(snap, var, filter=filter)
-        y = CacheRun(get_cloud_value)(ds, var, filter=filter)
+        y = CacheRun(get_cloud_value, 1)(ds, var, filter=filter)
         ret[var] = (float(y.in_cgs()), str(y.in_cgs().units))
     # make slice plot of the density and temperature
     return ret

@@ -159,8 +159,7 @@ def find_sigma(logl, alpha, deltalogl=-0.5):
     given the log likelihood logl.
 
     Return:
-    -------
-    alpha_max, alpha_minus, alpha_plus
+        alpha_max, alpha_minus, alpha_plus
     """
 
     assert deltalogl < 0.0
@@ -413,6 +412,7 @@ class Sink(Ramses):
     def find_SNs(self, lastoutput=None, mSN=8.0):
         """Return the raw time (in Myr) of all SN explosions
         !!! Apply to the version of RAMSES where all stars never die.
+
         Return
         ------
         time: {list}, the time of all SNe explosions, not necessary on
@@ -788,20 +788,19 @@ class Sink(Ramses):
                                       is_met=False,
                                       is_text_cloud_param=True,
                                       **kwargs):
-        """Plot one single line of IMF, Kroupa line (optional), set title
-        (optional), and add text (optional)
-        Parameters
+        """Plot one single line of the IMF.
 
+        Plot one single line of the IMF., optionally add a Kroupa line,
+        set title, and add text.
+
+        Parameters
         ----------
         is_text: bool
-            Control if or not to add texts at topleft (gas mass and den) and
-            topright corner.
+            Control if or not to add texts at topleft (gas mass and den) and topright corner.
         is_met: bool
-            Only when is_text = True. Control if or not only add text at
-            topright corner.
+            Only when is_text = True. Control if or not only add text at topright corner.
 
         """
-
         # s = sink.Sink(jobid)
         # t = s.get_t_over_tff()
         try:
@@ -980,7 +979,7 @@ class Sink(Ramses):
         is_over_dlogm: bool
             False: y = dN. True: y = dN/dlogm
         kwargs:
-            **kwargs for plot_imf()
+            `**kwargs` for plot_imf()
         """
 
         if out is None:
