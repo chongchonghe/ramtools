@@ -144,40 +144,74 @@ def get_sink_mass_from_movie1_for_all_sinks(movie_dir):
 
     sink_fn_fmt = movie_dir + "/sink_{:05d}.txt"
     info_fn_fmt = movie_dir + "/info_{:05d}.txt"
-    outs = []
-    is_started = False
-    masses = []
-    outs = []
-    times = []
-    sinkn = 0
-    count = 0
-    for i in range(5000):
+    # outs = []
+    # is_started = False
+    # masses = []
+    # outs = []
+    # times = []
+    # sinkn = 0
+    # count = 0
+    # for i in range(5000):
+    #     fn = sink_fn_fmt.format(i)
+    #     if not os.path.exists(fn):
+    #         continue
+    #     with open(fn, 'r') as f:
+    #         if not os.fstat(f.fileno()).st_size:
+    #             continue
+    #     is_started = True
+    #     outs.append(i)
+    #     info = info_fn_fmt.format(i)
+    #     t = read_quant_from_ramses_info(info, 'time')
+    #     times.append(t)
+    #     # sink = np.loadtxt(fn, delimiter=',')
+    #     sink = np.genfromtxt(fn, delimiter=',', missing_values=np.nan)
+    #     if sink.ndim == 1:
+    #         sink = np.array([sink])
+    #     # sink = np.loadtxt(fn, delimiter=',')
+    #     # if sink.ndim == 1:
+    #     #     sink = np.array([sink])
+    #     thisn = sink.shape[0]
+    #     assert thisn >= sinkn
+    #     if thisn > sinkn:
+    #         for k in range((thisn - sinkn)):
+    #             masses.append([np.nan] * count)
+    #     sinkn = thisn
+    #     for j in range(sinkn):  # loop over all the sinks
+    #         masses[j].append(sink[j][1])
+    #     count += 1
+
+    start = 0
+    for i in range(10000):
         fn = sink_fn_fmt.format(i)
         if not os.path.exists(fn):
             continue
         with open(fn, 'r') as f:
-            if not os.fstat(f.fileno()).st_size:
-                continue
-        is_started = True
-        outs.append(i)
-        info = info_fn_fmt.format(i)
+            if os.fstat(f.fileno()).st_size > 0:
+                start = i
+                break
+    for i in range(10000):
+        fn = sink_fn_fmt.format(i)
+        if os.path.exists(fn):
+            last = i
+    # number of stars
+    sink = np.genfromtxt(fn, delimiter=',', missing_values=np.nan)
+    if sink.ndim == 1:
+        sink = np.array([sink])
+    N = sink.shape[0]
+    times = np.zeros(N)
+    masses = np.zeros([N, last - start + 1])
+    outs = np.arange(start, last + 1)
+    for i in range(last - start + 1):
+        frame = i + start
+        fn = sink_fn_fmt.format(frame)
+        info = info_fn_fmt.format(frame)
         t = read_quant_from_ramses_info(info, 'time')
-        times.append(t)
-        # sink = np.loadtxt(fn, delimiter=',')
+        times[i] = t
         sink = np.genfromtxt(fn, delimiter=',', missing_values=np.nan)
         if sink.ndim == 1:
             sink = np.array([sink])
-        # sink = np.loadtxt(fn, delimiter=',')
-        # if sink.ndim == 1:
-        #     sink = np.array([sink])
         thisn = sink.shape[0]
-        if thisn > sinkn:
-            for k in range((thisn - sinkn)):
-                masses.append([np.nan] * count)
-        sinkn = thisn
-        for j in range(sinkn):  # loop over all the sinks
-            masses[j].append(sink[j][1])
-        count += 1
+        masses[:thisn, i] = sink[:, 1]
     return outs, times, masses
 
 def get_unit_B_wrong(ds):
