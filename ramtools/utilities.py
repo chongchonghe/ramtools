@@ -194,12 +194,14 @@ def get_sink_mass_from_movie1_for_all_sinks(movie_dir):
         if os.path.exists(fn):
             last = i
     # number of stars
+    fn = sink_fn_fmt.format(last)
     sink = np.genfromtxt(fn, delimiter=',', missing_values=np.nan)
     if sink.ndim == 1:
         sink = np.array([sink])
     N = sink.shape[0]
-    times = np.zeros(N)
+    times = np.zeros(last - start + 1)
     masses = np.zeros([N, last - start + 1])
+    masses[:, :] = np.nan
     outs = np.arange(start, last + 1)
     for i in range(last - start + 1):
         frame = i + start
