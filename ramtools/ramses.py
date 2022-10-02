@@ -8,7 +8,7 @@ Attributes:
 
 from . import center
 from . import plotutils as pltu
-from .utilities import my_yt_load
+from .utilities import my_yt_load, read_zoom_radius, read_zoom_center
 from .ramsesbase import *
 import warnings
 import f90nml
@@ -211,3 +211,13 @@ class Ramses(RamsesBase):
         if data.ndim == 1:
             data = np.array([data])
         return data[:, 1:8]
+
+    def read_zoom_center(self):
+        nml = os.path.join(self.jobPath, "run.sink.nml") 
+        return read_zoom_center(nml)
+
+    def read_zoom_radius(self, idx=-1):
+        nml = os.path.join(self.jobPath, "run.sink.nml") 
+        return read_zoom_radius(nml, idx)
+
+

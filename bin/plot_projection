@@ -63,6 +63,11 @@ Quick examples:
                            "off (default), will skip existing files.")
     args.add_argument("--overwrite-cache", action="store_true",
                       help="Turn on overwritting cache files used by ytfast")
+    args.add_argument("--hide-axes", action="store_true",
+                      help="Toggle hide axes")
+    args.add_argument("-a", "--annotate-scale", action="store_true",
+                      help="Toggle annotate scale")
+    args.add_argument("--scale", help="Coeff and unit of annotate_scale")
     args.add_argument("--no-ytfast", action="store_true",
                       help="Turn off using ytfast to speedup projection/slice plot")
     # args.add_argument("-p", "--params", type=dict, default={},
@@ -98,16 +103,18 @@ def main(args):
     if args.outs == 'all':
         outs = r.get_all_outputs()
     else:
-        if '-' in args.outs:
-            splits = [int(i) for i in args.outs.split('-')]
-            if len(splits) == 2:
-                outi, outf = splits
-                outs = range(outi, outf + 1)
-            elif len(splits) == 3:
-                outi, outf, diff = splits
-                outs = range(outi, outf + 1, diff)
-        else:
-            outs = [int(i) for i in args.outs.split(',')]
+        outs = []
+        for par in args.outs.split(','):
+            if '-' in par:
+                splits = [int(i) for i in par.split('-')]
+                if len(splits) == 2:
+                    outi, outf = splits
+                    outs += list(range(outi, outf + 1))
+                elif len(splits) == 3:
+                    outi, outf, diff = splits
+                    outs += list(range(outi, outf + 1, diff))
+            else:
+                outs += [int(par)]
     use_sink_as_center = False
     if args.center == 'c':
         center = [0.5, 0.5, 0.5]
@@ -117,7 +124,7 @@ def main(args):
             print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
             return
         nml = nmls[0]
-        print(f"Reading center from namelist file {nml}")
+        # print(f"Reading center from namelist file {nml}")
         center = ut.read_zoom_center(nml)
     elif ',' in args.center:
         center = [float(i) for i in args.center.split(',')]
@@ -130,7 +137,7 @@ def main(args):
             print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
             return
         nml = nmls[0]
-        print(f"Reading width from namelist file {nml}")
+        # print(f"Reading width from namelist file {nml}")
         idx = -1
         if len(args.width) > 5:
             idx = int(args.width[5:])
@@ -163,7 +170,7 @@ def main(args):
         if use_sink_as_center:
             try:
                 center = r.get_sink_positions(out)[sink_center] / r.boxlen
-                print("center =", center)
+                # print("center =", center)
             except ramses.NoSinkParticle:
                 print(f"No sink particle found in out {out}.")
                 continue
@@ -185,6 +192,7 @@ def main(args):
                     if (not args.overwrite) and os.path.exists(os.path.join(args.to, fo)):
                         print(f"{args.to}/{fo} exists. Skipping")
                         continue
+                    print("Plotting", fo)
                     if kind == 'slc':
                         if axis in ['x', 'y', 'z']:
                             if args.no_ytfast:
@@ -242,6 +250,18 @@ def main(args):
                         r.overplot_sink_with_id(
                             p, out, center, width/2, is_id=is_id,
                             zorder='mass', withedge=1, lims=lims)
+                    # add a rule bar
+                    if args.annotate_scale:
+                        # p.annotate_scale(max_frac=0.3, min_frac=0.08)
+                        if args.scale is not None:
+                            coeff, unit = float(args.scale.split(',')[0]), args.scale.split(',')[1]
+                            p.annotate_scale(coeff=coeff, unit=unit)
+                        else:
+                            p.annotate_scale(max_frac=0.4, min_frac=0.15, )
+                    if args.hide_axes:
+                        p.hide_axes()
+                        # p.axes.get_xaxis().set_visible(False)
+                        # p.axes.get_yaxis().set_visible(False)
                     p.save((args.to, fo), mpl_kwargs={"dpi": 300})
                     print(f"{args.to}/{fo} saved")
                     plt.close('all')
