@@ -369,7 +369,24 @@ def plot_a_region(
         out (int): output frame
         ds (yt.ds): yt.load instance
         center (list_like): the center of the region like in yt.SlicePlot
-        fields (str or tuple): the field to plot. The avaialble options are: 'den' or 'density' - density. 'logden' - log of density. 'T' or 'temperature' - temperature. 'T_vel_rela' - temperature overplot with velocity field. 'pressure' - thermal pressure. 'magstream' - stream lines of magnetic fields on top of density slice. The magnetic strength is be indicated by the color of the stream lines. 'beta' - plasma beta parameter. 'AlfMach' - Alfvenic Mach number. 'xHII' - hydrogen ionization fraction. 'mach' - thermal Mach number. 'mag' - magnetic field strength. 'vel' - velocity field on top of density slice. 'vel_rela' - relative velocity field, i.e. the velocity field in the frame with a velocity defined by center_vel. 'mach2d' - thermal Mach number in the plane. 'p_mag' - magnetic pressure. 
+        fields (str or tuple): the field to plot. The avaialble options are:
+            'den' or 'density' - density.
+            'logden' - log of density.
+            'T' or 'temperature' - temperature.
+            'T_vel_rela' - temperature overplot with velocity field.
+            'pressure' - thermal pressure.
+            'magstream' - stream lines of magnetic fields on top of density slice.
+                The magnetic strength is be indicated by the color of the stream lines.
+            'beta' - plasma beta parameter.
+            'AlfMach' - Alfvenic Mach number.
+            'xHII' - hydrogen ionization fraction.
+            'mach' - thermal Mach number.
+            'mag' - magnetic field strength.
+            'vel' - velocity field on top of density slice.
+            'vel_rela' - relative velocity field, i.e. the velocity field in the frame
+                with a velocity defined by center_vel.
+            'mach2d' - thermal Mach number in the plane.
+            'p_mag' - magnetic pressure.
         kind (str): 'slc' or 'prj'. Default: 'slc'
         axis (str or int): One of (0, 1, 2, 'x', 'y', 'z').
         width (float or tuple): width of the field of view. e.g. 0.01,
@@ -393,7 +410,8 @@ def plot_a_region(
             float: time in Myr
         is_set_size (bool): toggle setting figure size to 6 to make texts
             bigger. Default: True.
-        streamplot_kwargs (dict): More kwargs for plt.streamplot that is used when fields='magstream'. Default: {}
+        streamplot_kwargs (dict): More kwargs for plt.streamplot that is used
+            when fields='magstream'. Default: {}
         more_kwargs (dict): more field-specific kwargs. Default: {}
 
     Returns:
@@ -511,8 +529,8 @@ def plot_a_region(
             Bz = (data["z-Bfield-left"] + data["z-Bfield-right"]) / 2.
             B = yt.YTArray([Bx, By, Bz])
             return np.tensordot(north, B, 1)
-        ds.add_field(('gas', 'rel_B_1'), function=_rel_B_1)
-        ds.add_field(('gas', 'rel_B_2'), function=_rel_B_2)
+        ds.add_field(('gas', 'rel_B_1'), function=_rel_B_1, sampling_type='cell')
+        ds.add_field(('gas', 'rel_B_2'), function=_rel_B_2, sampling_type='cell')
     if fields in ['vel_rela', 'mach2d']:
         assert north is not None
         def _rel_vel_1(_field, data):
@@ -652,7 +670,7 @@ def plot_a_region(
             m_h = 1.6735575e-24
             mu = 1.4
             den = frb['density'].value / (mu * m_h)
-            unitB = utilities.get_unit_B(ds)
+            unitB = utilities.get_unit_B_new(ds)
             logger.info(f"unitB.value = {unitB.value}")
             Bx = frb['rel_B_1'].value * unitB.value  # Gauss
             By = frb['rel_B_2'].value * unitB.value  # Gauss

@@ -4,9 +4,25 @@ For documentation, check docs/index.rst
 """
 
 import os, sys
+from math import log10
 import argparse
 import warnings
 warnings.filterwarnings("ignore")
+
+def parse_outs(outs_str):
+    outs = []
+    for par in outs_str.split(','):
+        if '-' in par:
+            splits = [int(i) for i in par.split('-')]
+            if len(splits) == 2:
+                outi, outf = splits
+                outs += list(range(outi, outf + 1))
+            elif len(splits) == 3:
+                outi, outf, diff = splits
+                outs += list(range(outi, outf + 1, diff))
+        else:
+            outs += [int(par)]
+    return outs
 
 def get_args():
     args = argparse.ArgumentParser(description=("""
@@ -78,6 +94,11 @@ Quick examples:
                       help="zlim of temperature (in K)")
     args.add_argument("--xHII-zlim", type=float, nargs=2,
                       help="zlim of xHII")
+    args.add_argument("--dry-run", action="store_true",
+                      help="Toggle dry run: making one figure only and store it in local dierctory")
+    args.add_argument("--inzoombox", action="store_true",
+                      help="with center=integer, use sink particles in zoombox only.")
+    args.add_argument("--rise", help="raise the slice plot by percent of the box width")
     return args.parse_args()
 
 
@@ -100,21 +121,26 @@ def main(args):
         pass
 
     r = Ramses(args.jobdir)
+    zoomc = r.read_zoom_center()
+    zoomr = r.read_zoom_radius()
     if args.outs == 'all':
         outs = r.get_all_outputs()
     else:
-        outs = []
-        for par in args.outs.split(','):
-            if '-' in par:
-                splits = [int(i) for i in par.split('-')]
-                if len(splits) == 2:
-                    outi, outf = splits
-                    outs += list(range(outi, outf + 1))
-                elif len(splits) == 3:
-                    outi, outf, diff = splits
-                    outs += list(range(outi, outf + 1, diff))
-            else:
-                outs += [int(par)]
+        outs = parse_outs(args.outs)
+        # outs = []
+        # for par in args.outs.split(','):
+        #     if '-' in par:
+        #         splits = [int(i) for i in par.split('-')]
+        #         if len(splits) == 2:
+        #             outi, outf = splits
+        #             outs += list(range(outi, outf + 1))
+        #         elif len(splits) == 3:
+        #             outi, outf, diff = splits
+        #             outs += list(range(outi, outf + 1, diff))
+        #     else:
+        #         outs += [int(par)]
+    if args.rise is not None:
+        rises = parse_outs(args.rise)
     use_sink_as_center = False
     if args.center == 'c':
         center = [0.5, 0.5, 0.5]
@@ -169,11 +195,22 @@ def main(args):
         width = ramses.to_boxlen(width, ds)
         if use_sink_as_center:
             try:
-                center = r.get_sink_positions(out)[sink_center] / r.boxlen
-                # print("center =", center)
+                pos = r.get_sink_positions(out) / r.boxlen
+                if args.inzoombox:
+                    inside = np.max(pos - zoomc, axis=1) <= zoomr
+                    if np.sum(inside) == 0:
+                        print(f"No sink particles inside zoombox in frame {out}")
+                        continue
+                    center = pos[inside][sink_center]
+                else:
+                    center = pos[sink_center]
+                # center = r.get_sink_positions(out)[sink_center] / r.boxlen
+            except FileNotFoundError:
+                continue
             except ramses.NoSinkParticle:
                 print(f"No sink particle found in out {out}.")
                 continue
+
         for field in args.fields.split(','):
             if field == "den":
                 thefield = ("gas", "density")
@@ -185,86 +222,144 @@ def main(args):
                 thefield = ("gas", field)
             for kind in args.kinds.split(','):
                 for axis in axes:
-                    if axis in ['face', 'edge']:
-                        los = dires[axis][0]
-                        north = dires[axis][1]
-                    fo = f"{kind}-{axis}-{field}-out{out}.png"
-                    if (not args.overwrite) and os.path.exists(os.path.join(args.to, fo)):
-                        print(f"{args.to}/{fo} exists. Skipping")
-                        continue
-                    print("Plotting", fo)
-                    if kind == 'slc':
-                        if axis in ['x', 'y', 'z']:
-                            if args.no_ytfast:
-                                p = yt.SlicePlot(ds, axis, thefield, center=center, width=width)
-                            else:
-                                p = ytfast.SlicePlot(ds, axis, thefield, center=center, width=width,
-                                                     force_redo=args.overwrite_cache)
+
+                    # rise slices
+                    if args.rise and kind == 'slc':
+                        assert axis in 'xyz'
+                        if axis == 'x':
+                            centers = [[center[0] + width * (i - 50) / 100, center[1], center[2]] for i in rises]
+                        elif axis == 'y':
+                            centers = [[center[0], center[1] + width * (i - 50) / 100, center[2]] for i in rises]
+                        elif axis == 'z':
+                            centers = [[center[0], center[1], center[2] + width * (i - 50) / 100] for i in rises]
+                    else:
+                        rises = [-1]
+                        centers = [center]
+
+                    # print(center)
+                    # print(centers)
+                    # return
+
+                    for ccount, center in zip(rises, centers):
+                        if ccount >= 0:
+                            fo = f"{kind}-{axis}-{field}-out{out}-rise{ccount}.png"
                         else:
-                            p = yt.OffAxisSlicePlot(
-                                ds, los, thefield, center=center,
-                                width=width, north_vector=north)
-                    elif kind == 'prj':
-                        if axis in ['x', 'y', 'z']:
-                            if args.no_ytfast:
-                                p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width, 
-                                                      weight_field=('gas', 'density'),
-                                                      # max_level=10,
-                                                      )
+                            fo = f"{kind}-{axis}-{field}-out{out}.png"
+                        if (not args.overwrite) and os.path.exists(os.path.join(args.to, fo)):
+                            print(f"{args.to}/{fo} exists. Skipping")
+                            continue
+                        if axis in ['face', 'edge']:
+                            los = dires[axis][0]
+                            north = dires[axis][1]
+                        print("Plotting", fo)
+                        if kind == 'slc':
+                            if axis in ['x', 'y', 'z']:
+                                # if args.no_ytfast:
+                                # do not use ytfast.SlicePlot
+                                if 1:
+                                    p = yt.SlicePlot(ds, axis, thefield, center=center, width=width)
+                                else:
+                                    p = ytfast.SlicePlot(ds, axis, thefield, center=center, width=width,
+                                                         force_redo=args.overwrite_cache)
                             else:
-                                try:
-                                    p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width,
-                                                              weight_field=('gas', 'density'),
-                                                              force_redo=args.overwrite_cache)
-                                except yt.utilities.exceptions.YTPixelizeError:
+                                p = yt.OffAxisSlicePlot(
+                                    ds, los, thefield, center=center,
+                                    width=width, north_vector=north)
+                        elif kind == 'prj':
+                            if axis in ['x', 'y', 'z']:
+                                if args.no_ytfast:
                                     p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width,
-                                                          weight_field=('gas', 'density'))
-                        else:
-                            p = yt.OffAxisProjectionPlot(
-                                ds, los, thefield, center=center, width=width, 
-                                weight_field=('gas', 'density'), #max_level=l_max,
-                                north_vector=north)
-                    if field in ['den', 'density']:
-                        plotutils.den_setup(p)
-                    # if 'zlim' in args.params:
-                    #     if field in args.params['zlim']:
-                    #         p.set_zlim(thefield, *args.params['zlim'][field])
-                    if thefield[1] == "density" and args.den_zlim is not None:
-                        p.set_zlim(thefield, *args.den_zlim)
-                    elif thefield[1] == "temperature" and args.T_zlim is not None:
-                        p.set_zlim(thefield, *args.T_zlim)
-                    elif thefield[1] == "xHII" and args.xHII_zlim is not None:
-                        p.set_zlim(thefield, *args.xHII_zlim)
-                    elif thefield[1] == "grid_level":
-                        # p.set_cmap(thefield, "tab10")
-                        p.set_cmap(thefield, "tab20")
-                        p.set_log(thefield, False)
-                        # p.set_zlim(thefield, 3.5, 13.5)
-                        p.set_zlim(thefield, -0.5, 19.5)
-                    # overplot sink particles
-                    if args.sink:
-                        is_id = False
-                        lims = [0.1, 10]
-                        if args.mass_lim is not None:
-                            lims = args.mass_lim
-                        r.overplot_sink_with_id(
-                            p, out, center, width/2, is_id=is_id,
-                            zorder='mass', withedge=1, lims=lims)
-                    # add a rule bar
-                    if args.annotate_scale:
-                        # p.annotate_scale(max_frac=0.3, min_frac=0.08)
-                        if args.scale is not None:
-                            coeff, unit = float(args.scale.split(',')[0]), args.scale.split(',')[1]
-                            p.annotate_scale(coeff=coeff, unit=unit)
-                        else:
-                            p.annotate_scale(max_frac=0.4, min_frac=0.15, )
-                    if args.hide_axes:
-                        p.hide_axes()
-                        # p.axes.get_xaxis().set_visible(False)
-                        # p.axes.get_yaxis().set_visible(False)
-                    p.save((args.to, fo), mpl_kwargs={"dpi": 300})
-                    print(f"{args.to}/{fo} saved")
-                    plt.close('all')
+                                                          weight_field=('gas', 'density'),
+                                                          # max_level=10,
+                                                          )
+                                else:
+                                    try:
+                                        p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width,
+                                                                  weight_field=('gas', 'density'),
+                                                                  force_redo=args.overwrite_cache)
+                                    except yt.utilities.exceptions.YTPixelizeError:
+                                        p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width,
+                                                              weight_field=('gas', 'density'))
+                            else:
+                                p = yt.OffAxisProjectionPlot(
+                                    ds, los, thefield, center=center, width=width,
+                                    weight_field=('gas', 'density'), #max_level=l_max,
+                                    north_vector=north)
+                        if field in ['den', 'density']:
+                            plotutils.den_setup(p)
+                            #p.set_colorbar_label(thefield, r"log n [cm$^{-3}$]")
+                        # if 'zlim' in args.params:
+                        #     if field in args.params['zlim']:
+                        #         p.set_zlim(thefield, *args.params['zlim'][field])
+                        if thefield[1] == "density" and args.den_zlim is not None:
+                            p.set_zlim(thefield, *args.den_zlim)
+                        elif thefield[1] == "temperature" and args.T_zlim is not None:
+                            p.set_zlim(thefield, *args.T_zlim)
+                        elif thefield[1] == "xHII" and args.xHII_zlim is not None:
+                            p.set_zlim(thefield, *args.xHII_zlim)
+                        elif thefield[1] == "grid_level":
+                            # p.set_cmap(thefield, "tab10")
+                            p.set_cmap(thefield, "tab20")
+                            p.set_log(thefield, False)
+                            # p.set_zlim(thefield, 3.5, 13.5)
+                            p.set_zlim(thefield, -0.5, 19.5)
+                        # overplot sink particles
+                        if args.sink:
+                            is_id = False
+                            lims = [0.1, 10]
+                            if args.mass_lim is not None:
+                                lims = args.mass_lim
+                            r.overplot_sink_with_id(
+                                p, out, center, width/2, is_id=is_id,
+                                zorder='mass', withedge=1, lims=lims)
+                        # add a rule bar
+                        # if args.annotate_scale:
+                        #     # p.annotate_scale(max_frac=0.3, min_frac=0.08)
+                        #     if args.scale is not None:
+                        #         coeff, unit = float(args.scale.split(',')[0]), args.scale.split(',')[1]
+                        #         p.annotate_scale(coeff=coeff, unit=unit)
+                        #     else:
+                        #         p.annotate_scale(max_frac=0.4, min_frac=0.15, )
+                        p.set_figure_size(6)
+                        if args.hide_axes:
+                            # p.axes.get_xaxis().set_visible(False)
+                            # p.axes.get_yaxis().set_visible(False)
+                            p.hide_axes()
+                            p.set_axes_unit('pc')
+                        f = p.export_to_mpl_figure((1,1))
+                        if field in ['den', 'density']:
+                            cb = f.axes[1]
+                            yticks = cb.get_yticks()
+                            lbs = [str(int(log10(x))) for x in yticks]
+                            # cb.set_yticklabels(['3', '4', '5', '6', '7', '8', '9'])
+                            cb.set_yticklabels(lbs)
+                            cb.set_ylabel(r"$\log$ density (cm$^{-3}$)")
+
+                        if args.hide_axes and args.annotate_scale:
+                            # p.annotate_scale(max_frac=0.3, min_frac=0.08)
+                            if args.scale is not None:
+                                coeff_str, unit = args.scale.split(',')
+                                coeff = float(coeff_str)
+                                assert args.hide_axes, "use scale bar only when hide_axes, otherwise the " \
+                                                       "length of the scale bar is not corrrect"
+                                leng = ramses.to_boxlen((coeff, unit), ds) / ramses.to_boxlen((1, 'pc'), ds)
+                                label = f"{coeff_str} {unit}"
+                                plotutils.add_scalebar(f.axes[0], leng, label=label, right=0.94,
+                                            fontsize="large")
+                                # p.annotate_scale(coeff=coeff, unit=unit)
+                            else:
+                                pass
+                                # p.annotate_scale(max_frac=0.4, min_frac=0.15, )
+                        if args.dry_run:
+                            f.savefig(fo, dpi=300)
+                            return
+                        f.savefig(os.path.join(args.to, fo), dpi=300)
+                        print(f"{args.to}/{fo} saved")
+                        plt.close('all')
+                        del p
+                        # p.save((args.to, fo), mpl_kwargs={"dpi": 300})
+    return
+
 
 
 if __name__ == '__main__':

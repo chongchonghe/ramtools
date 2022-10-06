@@ -108,11 +108,12 @@ def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
     ds_repr = os.path.abspath(ds.directory)
     if isinstance(center, np.ndarray):
         center = center.tolist()
+    center = _to_tuple(center)
     hash_dict = dict(
         ds=ds_repr,
         normal=normal,
         fields=fields,
-        center = _to_tuple(center),
+        center = center,
         width = width,
         kind="SlicePlot",
         tag = tag,  # a free tag, used to distinguish different versions
@@ -132,14 +133,18 @@ def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
     h5fn = _hash_path(ds, hash_dict, kind='SlicePlot')
 
     if GLOBAL_FORCE_REDO or force_redo or (not os.path.exists(h5fn)):
-        p = yt.SlicePlot(ds, normal, fields, *args, **kwargs)
+        # p = yt.SlicePlot(ds, normal, fields, *args, **kwargs)
+        p = yt.SlicePlot(ds, normal, fields, width=width, center=center,
+                         *args, **kwargs)
         if zlim is not None:
             p.set_zlim(fields, *zlim)
         p.data_source.save_as_dataset(h5fn)
     else:
         print("Loading", h5fn)
     data = yt.load(h5fn)
-    return yt.SlicePlot(data, normal, fields, *args, **kwargs)
+    # return yt.SlicePlot(data, normal, fields, *args, **kwargs)
+    return yt.SlicePlot(data, normal, fields, center=center, width=width,
+                        *args, **kwargs)
 
 # def SlicePlot_cacherun(ds, *args, **kwargs):
 #     """What is this???"""
@@ -172,7 +177,8 @@ def SlicePlot(ds, normal=None, fields=None, center='c', width=None,
 
 def ProjectionPlot(ds, axis, fields, center='c', width=None,
                    axes_unit=None, weight_field=None, max_level=None,
-                   tag=None, force_redo=False, **kwargs):
+                   tag=None, force_redo=False, return_data=False,
+                   **kwargs):
     """ A wrapper to yt.ProjectionPlot to use cache file to speed up
     re-production of a figure with different aesthetic settings like
     new colormap, different zlim, overplotting sink particles, etc.
@@ -243,6 +249,8 @@ def ProjectionPlot(ds, axis, fields, center='c', width=None,
     else:
         print("Loading", h5fn)
     data = yt.load(h5fn)
+    if return_data:
+        return data
     p = yt.ProjectionPlot(data, axis, fields, center=center,
                           width=width,
                           # weight_field=weight_field,

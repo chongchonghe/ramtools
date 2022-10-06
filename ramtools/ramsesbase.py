@@ -293,9 +293,9 @@ Examples
             plot.annotate_marker(
                 pos, 'o', coord_system='data',
                 plot_args={'color': colors(mass_scaled),
-                           's': 30,
+                           's': 20,
                            'zorder': zo,
-                           'linewidths': 0.3,
+                           'linewidths': 0.6, # 0.3
                            'edgecolors': 'k' if withedge else 'face'})
             if is_id:
                 plot.annotate_text(pos, str(indices[i]), coord_system='data',

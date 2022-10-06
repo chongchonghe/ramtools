@@ -269,6 +269,15 @@ def add_B_squared(ds):
     ds.add_field(('gas', 'Bsquared'), function=_Bsquared, sampling_type="cell")
 
 
+def add_B_squared_gauss(ds):
+    def _Bsquared(field, data):
+        return ((data["x-Bfield-left"] + data["x-Bfield-right"])**2 +
+                (data["y-Bfield-left"] + data["y-Bfield-right"])**2 +
+                (data["z-Bfield-left"] + data["z-Bfield-right"])**2) / 4
+    ds.add_field(('gas', 'Bsquared'), function=_Bsquared, sampling_type="cell",
+                 units="gauss**2")
+
+
 def add_v_squared(ds):
     def _Vsquared(field, data):
         return data["velocity_x"]**2 + data["velocity_y"]**2 + data["velocity_z"]**2

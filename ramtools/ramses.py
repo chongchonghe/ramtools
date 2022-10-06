@@ -12,6 +12,10 @@ from .utilities import my_yt_load, read_zoom_radius, read_zoom_center
 from .ramsesbase import *
 import warnings
 import f90nml
+try:
+    from .yt_field_descrs import FIELDS
+except:
+    FIELDS = None
 
 RAM_DIR = None
 
@@ -20,7 +24,7 @@ class Ramses(RamsesBase):
     methods defined in this class may not work for another person's RAMSES
     simulations."""
 
-    def __init__(self, jobdir=None, jobid=None, ram_dir=None, fields=None):
+    def __init__(self, jobdir=None, jobid=None, ram_dir=None, fields=FIELDS):
         """Declare a Ramses instance for a given job. The job can be
         specified by one of the following options:
 
