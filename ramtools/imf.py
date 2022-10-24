@@ -914,7 +914,7 @@ class Sink(Ramses):
         return
 
     def quick_plot_IMF(self, ax=None, out=None, masses=None, bin_width=None,
-                       bins=None, is_over_dlogm=False, shift=None,
+                       bins=None, is_over_dlogm=False, shift=None, time0=0,
                        is_kroupa=False, kroupa_kwargs={}, **kwargs):
 
         if out is None:
@@ -945,8 +945,13 @@ class Sink(Ramses):
         plot_imf(ax, m, bins=bins, is_over_dlogm=is_over_dlogm, **kwargs)
 
         # write time and outputid tag
-        text = "t = {:.3g} Myr".format(self.get_time(out, readinfo=True))
-        ax.text(0.02, 0.98, text, va='top', transform=ax.transAxes)
+        if time0 == 0:
+            time_offset = 0.0
+        elif time0 is not None:
+            time_offset = self.get_time(time0)
+        if time0 is not None:
+            text = "t = {:.3g} Myr".format(self.get_time(out, readinfo=True) - time_offset)
+            ax.text(0.02, 0.98, text, va='top', transform=ax.transAxes)
         # ax.set_title('Job' + self.jobid)
         # utilities.add_out_tag(ax, out)
 

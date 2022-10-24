@@ -48,9 +48,10 @@ Quick examples:
                       help="(Default 'c') The center.\n"
                       "Cases:\n"
                       "    'c': = [0.5, 0.5, 0.5]\n"
+                      "    'peak': the peak density location"
                       "    x,y,z: position in boxlen unit, e.g. 0.5,0.5,0.5\n"
                       "    a single integer: use the location of a sink "
-                           "particle with the given index as the center"
+                           "particle with the given index as the center\n"
                      )
     args.add_argument("-l", "--los", type=float, nargs=3,
                       help="The line of sight vector, usually the face-on "
@@ -72,6 +73,7 @@ Quick examples:
                            "prj' (default)")
     args.add_argument("-s", "--sink", action="store_true",
                       help="Turn on overplotting sink particles")
+    args.add_argument("--sink-color", help="Set sink particle color. Default: Greens. Examples: Greens_r, Reds, Reds_r")
     args.add_argument("--mass-lim", type=float, nargs=2,
                       help="Colormap limits (in Msun) of the sink particles")
     args.add_argument("-o", "--overwrite", action="store_true",
@@ -84,6 +86,8 @@ Quick examples:
     args.add_argument("-a", "--annotate-scale", action="store_true",
                       help="Toggle annotate scale")
     args.add_argument("--scale", help="Coeff and unit of annotate_scale")
+    args.add_argument("--scaleloc", help="Location of the scale bar: lower_right (default) or"
+                      "lower_left")
     args.add_argument("--no-ytfast", action="store_true",
                       help="Turn off using ytfast to speedup projection/slice plot")
     # args.add_argument("-p", "--params", type=dict, default={},
@@ -97,8 +101,18 @@ Quick examples:
     args.add_argument("--dry-run", action="store_true",
                       help="Toggle dry run: making one figure only and store it in local dierctory")
     args.add_argument("--inzoombox", action="store_true",
-                      help="with center=integer, use sink particles in zoombox only.")
+                      help="with center=integer or center='peak', use sink particles/gas in zoombox only.")
     args.add_argument("--rise", help="raise the slice plot by percent of the box width")
+    args.add_argument("--t0", help="set the t0 and annotate time. t0 could be one of "
+                                   "the following options: 1. an integer indicating the "
+                                   "time of the corresponding output frame; 2. a float "
+                                   "indicating the t0 in Myr")
+    args.add_argument("--time-unit", help="time unit, either Myr (default) or kyr")
+    args.add_argument("--darkbg", action="store_true", help="Use dark background")
+    args.add_argument("--draw-box", help="If not None, draw a box with this width")
+    args.add_argument("--box-center", help="define the center of the box to draw, used along with --draw-box. "
+                                           "The syntax is similar to center")
+    args.add_argument("--skip", help="skip certain outputs")
     return args.parse_args()
 
 
@@ -114,11 +128,14 @@ def main(args):
     import matplotlib.pyplot as plt
     from glob import glob
     from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
+    from matplotlib.pyplot import cm
 
     try:
         plt.style.use(['science', 'no-latex'])
     except:
         pass
+    if args.darkbg:
+        plt.style.use('dark_background')
 
     r = Ramses(args.jobdir)
     zoomc = r.read_zoom_center()
@@ -141,22 +158,9 @@ def main(args):
         #         outs += [int(par)]
     if args.rise is not None:
         rises = parse_outs(args.rise)
-    use_sink_as_center = False
-    if args.center == 'c':
-        center = [0.5, 0.5, 0.5]
-    elif args.center == 'zoomc':    # use zoom center
-        nmls = sorted(glob(f"{args.jobdir}/*.nml"))
-        if len(nmls) == 0:
-            print(f"Failed to load a namelist file. Is {args.jobdir} a valid job directory?")
-            return
-        nml = nmls[0]
-        # print(f"Reading center from namelist file {nml}")
-        center = ut.read_zoom_center(nml)
-    elif ',' in args.center:
-        center = [float(i) for i in args.center.split(',')]
-    else:
-        use_sink_as_center = True
-        sink_center = int(args.center)
+    # use_sink_as_center = False
+    # use_gas_peak_as_center = False
+
     if 'zoomr' in args.width:
         nmls = sorted(glob(f"{args.jobdir}/*.nml"))
         if len(nmls) == 0:
@@ -173,7 +177,19 @@ def main(args):
         width = (float(p1), p2)
     else:
         width = float(args.width)
+    if args.draw_box is not None:
+        if ',' in args.draw_box:
+            p1, p2 = args.draw_box.split(',')
+            box_width = (float(p1), p2)
+        else:
+            box_width = float(args.draw_box)
     os.makedirs(args.to, exist_ok=1)
+    # time offset
+    if args.t0 is not None:
+        try:
+            timeoffset = (r.get_time(int(args.t0)), 'Myr')
+        except ValueError:
+            timeoffset = (float(args.t0), 'Myr')
     axes = None
     if args.los is None:
         axes = args.axes.split(',')
@@ -187,28 +203,63 @@ def main(args):
         left = -1. * right
         dires = {"face": [face, left],
                  "edge": [right, face]}
+    skips = []
+    if args.skip is not None:
+        for i in args.skip.split(','):
+            skips.append(int(i))
     for out in outs:
-        if not r.exist(out):
+        if not r.exist(out) or out in skips:
             print(f"Skipping frame {out}")
             continue
         ds = r.load_ds(out)
         width = ramses.to_boxlen(width, ds)
-        if use_sink_as_center:
-            try:
-                pos = r.get_sink_positions(out) / r.boxlen
-                if args.inzoombox:
-                    inside = np.max(pos - zoomc, axis=1) <= zoomr
-                    if np.sum(inside) == 0:
-                        print(f"No sink particles inside zoombox in frame {out}")
-                        continue
-                    center = pos[inside][sink_center]
-                else:
-                    center = pos[sink_center]
-                # center = r.get_sink_positions(out)[sink_center] / r.boxlen
-            except FileNotFoundError:
-                continue
-            except ramses.NoSinkParticle:
-                print(f"No sink particle found in out {out}.")
+        if args.draw_box is not None:
+            box_width = ramses.to_boxlen(box_width, ds)
+
+        def parse_center(_center):
+            if _center == 'c':
+                return [0.5, 0.5, 0.5]
+            elif _center == 'zoomc':    # use zoom center
+                return zoomc
+            elif _center == 'peak':    # use peak density location
+                # use_gas_peak_as_center
+                print(f"Finding the peak density location in out {out}...")
+                # zoomr3 = r.read_zoom_radius(-2)
+                zoomr3 = zoomr
+                return plotutils.find_peak_density_location(
+                    ds,
+                    [izoomc - zoomr3 for izoomc in zoomc],
+                    [izoomc + zoomr3 for izoomc in zoomc],
+                )
+            elif ',' in _center:
+                return [float(i) for i in _center.split(',')]
+            else:   # _center is int, use sink particle location
+                sink_center = int(_center)
+                try:
+                    pos = r.get_sink_positions(out) / r.boxlen
+                    if args.inzoombox:
+                        inside = np.max(pos - zoomc, axis=1) <= zoomr
+                        if np.sum(inside) == 0:
+                            print(f"No sink particles inside zoombox in frame {out}")
+                            return
+                        return pos[inside][sink_center]
+                    else:
+                        return pos[sink_center]
+                    # center = r.get_sink_positions(out)[sink_center] / r.boxlen
+                except FileNotFoundError:
+                    return
+                except ramses.NoSinkParticle:
+                    print(f"No sink particle found in out {out}.")
+                    return
+
+        center = parse_center(args.center)
+        if center is None:
+            print(f"Could not find a proper center in out {out}.")
+            continue
+        if args.draw_box is not None:
+            boxcenter = parse_center(args.box_center)
+            if boxcenter is None:
+                print(f"Could not find a proper boxcenter in out {out}.")
                 continue
 
         for field in args.fields.split(','):
@@ -235,10 +286,6 @@ def main(args):
                     else:
                         rises = [-1]
                         centers = [center]
-
-                    # print(center)
-                    # print(centers)
-                    # return
 
                     for ccount, center in zip(rises, centers):
                         if ccount >= 0:
@@ -309,8 +356,12 @@ def main(args):
                             lims = [0.1, 10]
                             if args.mass_lim is not None:
                                 lims = args.mass_lim
+                            if args.sink_color is None:
+                                colors = cm.Greens
+                            else:
+                                colors = cm.get_cmap(args.sink_color)
                             r.overplot_sink_with_id(
-                                p, out, center, width/2, is_id=is_id,
+                                p, out, center, width/2, is_id=is_id, colors=colors,
                                 zorder='mass', withedge=1, lims=lims)
                         # add a rule bar
                         # if args.annotate_scale:
@@ -321,12 +372,25 @@ def main(args):
                         #     else:
                         #         p.annotate_scale(max_frac=0.4, min_frac=0.15, )
                         p.set_figure_size(6)
+                        if args.t0 is not None:
+                            if args.time_unit is None:
+                                thefmt = ".1f"
+                            elif args.time_unit == "Myr":
+                                thefmt = ".1f"
+                            elif args.time_unit == "kyr":
+                                thefmt = ".0f"
+                            p.annotate_timestamp(time_format='t = {time:' + thefmt + '} {units}',
+                                                 time_offset=timeoffset, corner="upper_left",
+                                                 time_unit=args.time_unit)
                         if args.hide_axes:
                             # p.axes.get_xaxis().set_visible(False)
                             # p.axes.get_yaxis().set_visible(False)
-                            p.hide_axes()
+                            p.hide_axes(draw_frame=True)
                             p.set_axes_unit('pc')
+                        if args.draw_box is not None:
+                            plotutils.annotate_box(p, boxcenter, box_width, axis)
                         f = p.export_to_mpl_figure((1,1))
+                        ax = f.axes[0]
                         if field in ['den', 'density']:
                             cb = f.axes[1]
                             yticks = cb.get_yticks()
@@ -334,7 +398,6 @@ def main(args):
                             # cb.set_yticklabels(['3', '4', '5', '6', '7', '8', '9'])
                             cb.set_yticklabels(lbs)
                             cb.set_ylabel(r"$\log$ density (cm$^{-3}$)")
-
                         if args.hide_axes and args.annotate_scale:
                             # p.annotate_scale(max_frac=0.3, min_frac=0.08)
                             if args.scale is not None:
@@ -344,12 +407,20 @@ def main(args):
                                                        "length of the scale bar is not corrrect"
                                 leng = ramses.to_boxlen((coeff, unit), ds) / ramses.to_boxlen((1, 'pc'), ds)
                                 label = f"{coeff_str} {unit}"
-                                plotutils.add_scalebar(f.axes[0], leng, label=label, right=0.94,
-                                            fontsize="large")
+                                if args.scaleloc == "lower_left":
+                                    left, right = 0.06, None
+                                else:
+                                    left, right = None, 0.94
+                                plotutils.add_scalebar(
+                                    ax, leng, label=label, left=left, right=right, 
+                                    fontsize="large")
                                 # p.annotate_scale(coeff=coeff, unit=unit)
                             else:
                                 pass
                                 # p.annotate_scale(max_frac=0.4, min_frac=0.15, )
+                        # add axis labels
+                        if args.hide_axes:
+                            plotutils.annotate_axis_label(ax, axis)
                         if args.dry_run:
                             f.savefig(fo, dpi=300)
                             return
@@ -359,7 +430,6 @@ def main(args):
                         del p
                         # p.save((args.to, fo), mpl_kwargs={"dpi": 300})
     return
-
 
 
 if __name__ == '__main__':

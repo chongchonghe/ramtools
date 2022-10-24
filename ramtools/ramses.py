@@ -165,7 +165,7 @@ class Ramses(RamsesBase):
                     #par = parnew
                     m0 = mnew
 
-    def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left',
+    def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left', unit="Myr",
                           **kwargs):
         """
         Overplot time tag on top-left corner
@@ -179,7 +179,7 @@ class Ramses(RamsesBase):
     
         """
     
-        pltu.overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc,
+        pltu.overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc, unit=unit,
                           **kwargs)
 
     def get_out_after(self, t):
@@ -205,6 +205,9 @@ class Ramses(RamsesBase):
         return "{}/movie1/sink_{:05d}.txt".format(self.jobPath, num)
 
     def read_movie_sink_as_particle(self, num):
+        """ Read sink_xxxxx.csv in job/movie1 as particle array containing
+        the following columns: m, x, y, z, vx, vy, vz, all in code units """
+        
         fp = self.movie_sink_path(num)
         if not os.path.isfile(fp):
             raise FileNotFoundError

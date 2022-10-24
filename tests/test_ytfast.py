@@ -72,9 +72,9 @@ def fastplot_phase():
     f.savefig("t_phaseplot.png", dpi=300)
     print("\nTime: ", time() - t1)
 
-def plot(job):
+def plot():
     print("\nTest 4: plotting")
-    rp = rt.RamPlot(job)
+    rp = rt.RamPlot("Job1")
     t1 = time()
     out = 1
     p = rp.plot_prj(out)
@@ -90,11 +90,16 @@ if __name__ == "__main__":
     if not os.path.exists("figures"):
         os.makedirs("figures")
     print(f"---------------- Running {sys.argv[0]} ---------------------")
-    JOB = sys.argv[1]
-    def msg(task):
-        print("Test {} done!\n".format(task))
-    fastplot(JOB)
-    msg("fastplot")
-    print('Tests completed successful!')
+    #>>>>> old
+    # JOB = sys.argv[1]
+    # def msg(task):
+    #     print("Test {} done!\n".format(task))
+    # fastplot(JOB)
+    # msg("fastplot")
+    # print('Tests completed successful!')
+    #<<<<< old
+    #>>>>> new
+    plot()
+    #<<<<< new
     print("-----------------------------------------------------------------")
     print()

@@ -19,6 +19,8 @@ Example
 import yt
 from . import ytfast
 from matplotlib.patches import Rectangle
+from matplotlib.font_manager import FontProperties
+from .cacherun import CacheRun
 
 def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
               weight_field="density", is_time=False):
@@ -144,7 +146,7 @@ def plot_prj(ds, center, width, sinks, field='density', axis='x',
     return p
 
 
-def overplot_time_tag(time, ax, loc='upper left', **kwargs):
+def overplot_time_tag(time, ax, loc='upper left', unit='Myr', **kwargs):
     """
     Overplot time tag on top-left corner
 
@@ -166,7 +168,11 @@ def overplot_time_tag(time, ax, loc='upper left', **kwargs):
     elif loc == 'upper center':
         pos = [.5, .95]
         va, ha = 'top', 'center'
-    t = f"t = {time:.1f} Myr"
+    if unit == 'Myr':
+        t = f"t = {time:.1f} Myr"
+    else:
+        t = f"t = {1000*time:.0f} kyr"
+        # t = f"{1000*time:.0f} kyr"
     ax.text(*pos, t, va=va, ha=ha, transform=ax.transAxes, **kwargs)
 
 
@@ -221,3 +227,51 @@ def add_scalebar(ax, length, label, h=0.014, left=0.03, right=None,
         )
 
 
+def annotate_axis_label(ax, axis, **kwargs):
+    # add axis labels
+    font = FontProperties()
+    font.set_name('Open Sans')
+    labelx, labely = {'x': ['y', 'z'], 'y': ['z', 'x'], 'z': ['x', 'y']}[axis]
+    text_kwargs = dict(color='w', fontsize='large')
+    text_kwargs.update(kwargs)
+    ax.text(0.5, 0.02, labelx, transform=ax.transAxes, fontproperties=font,
+            va='bottom', ha='center', **text_kwargs)
+    ax.text(0.02, 0.5, labely, transform=ax.transAxes, fontproperties=font,
+            va='center', ha='left', **text_kwargs)
+
+
+def annotate_box(p, center, width, axis,
+                 plot_args={"linewidth": 1, "color": 'w'}):
+    if axis == 'x':
+        thecenter = (center[1], center[2])
+    elif axis == 'y':
+        thecenter = (center[0], center[2])
+    elif axis == 'z':
+        thecenter = (center[0], center[1])
+    r = []
+    halfwidth = width / 2
+    r.append([thecenter[0] - halfwidth, thecenter[1] - halfwidth])
+    r.append([thecenter[0] + halfwidth, thecenter[1] - halfwidth])
+    r.append([thecenter[0] + halfwidth, thecenter[1] + halfwidth])
+    r.append([thecenter[0] - halfwidth, thecenter[1] + halfwidth])
+    for i in range(4):
+        if axis == 'x':
+            r[i] = [0.5] + r[i]
+        elif axis == 'y':
+            r[i] = [r[i][0], 0.5, r[i][1]]
+        elif axis == 'z':
+            r[i] = r[i] + [0.5]
+    p.annotate_line(r[0], r[1], plot_args=plot_args)
+    p.annotate_line(r[1], r[2], plot_args=plot_args)
+    p.annotate_line(r[2], r[3], plot_args=plot_args)
+    p.annotate_line(r[3], r[0], plot_args=plot_args)
+
+
+def base_find_peak_density_location(ds, box_l, box_r):
+    zoombox = ds.box(box_l, box_r)
+    center_cm = zoombox.argmax('density')
+    return [center_cm[i].to('cm').value / ds.length_unit.to('cm').value for i in range(3)]
+
+
+def find_peak_density_location(ds, box_l, box_r):
+    return CacheRun(base_find_peak_density_location)(ds, box_l, box_r)

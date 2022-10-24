@@ -129,6 +129,11 @@ Examples
                 self.ds_container[out] = yt.load(self.get_info_path(out), fields=self.fields)
         return self.ds_container[out]
 
+    def delete_ds(self, out):
+        """ Remove a ds from self.ds_container """
+        if out in self.ds_container:
+            del self.ds_container[out]
+
     def get_sink_path(self, out):
         """Return the path to sink_*.csv """
         sinkFile = "{0}/output_{1:05d}/sink_{1:05d}.csv".format(
