@@ -58,6 +58,8 @@ Examples:
                       help="with center=integer, use sink particles in zoombox only.")
     args.add_argument("--t0", default="0", help="Define t0. If not 'off', will annotate timestamp,"
                                                 "and will set t=0 to the t0th frame")
+    args.add_argument("--prefix", default="", 
+                      help="add prefix to image filename")
 
     return args.parse_args()
 
@@ -119,7 +121,7 @@ def main(args):
         else:
             outs = [int(i) for i in args.outs.split(',')]
     for out in outs:
-        fn = f"{args.to}/imf_out_{out}.pdf"
+        fn = f"{args.to}/{args.prefix}imf_out_{out}.pdf"
         fn_png = f"{args.to}/imf_out_{out}.png"
         if os.path.exists(fn_png):
             os.system(f"rm -f {fn_png}")

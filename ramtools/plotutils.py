@@ -52,6 +52,34 @@ def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
         p.annotate_timestamp(time_format='{time:.3f} {units}',
                              time_offset=time_offset)
 
+def tag_snap(p, time_offset=None, is_time=True):
+    if is_time:
+        p.annotate_timestamp(time_format='{time:.3f} {units}',
+                             time_offset=time_offset)
+def colden_setup(p, zlim=None):
+    """
+    Args:
+        p (YT plot):
+        zlim (tuple): limits of the field
+        mu (float): the mean particle weight. The mass density rho = mu * n
+        quant (str): 'volume' or 'column' for volumetric and column density
+    """
+
+    if "density" in p.fields:
+        fi = "density"
+    elif ("gas", "density") in p.fields:
+        fi = ("gas", "density")
+    else:
+        print("Failed to run den_setup: 'density' field not found")
+        return
+    if zlim is not None:
+        p.set_zlim(fi, zlim[0], zlim[1])
+    p.set_cmap(fi, 'viridis')
+    # if is_time:
+    #     p.annotate_timestamp(time_format='{time:.3f} {units}',
+    #                          time_offset=time_offset)
+    return
+
 def T_setup(p, zlim=None, time_offset=None, is_time=False):
     if "temperature" in p.fields:
         fi = "temperature"

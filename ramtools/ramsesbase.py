@@ -63,7 +63,8 @@ Examples
         self.fields = fields
         self.ds_container = {}
         self.ds1 = None
-        self.get_ds()
+        if self.get_ds() == 1:
+            print("MyWarning: Failed to load a RAMSES output")
         if self.get_units():
             self.success = False
         else:

@@ -125,6 +125,7 @@ def main(out_fmt):
     _, ax = plt.subplots(figsize=[12, 5])
     plot_dt_vs_coarse('.', ax, out_fmt=out_fmt)
     plt.title(os.path.basename(os.path.abspath('.')))
+    ax.set(ylim=[0, None])
     plt.tight_layout()
     # plt.savefig('t_and_ncoarse.png')
     bn = os.path.basename(out_fmt).replace("*", "xxx")

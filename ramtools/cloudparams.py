@@ -14,7 +14,7 @@ from .units import mH
 from .cacherun import CacheRun
 
 
-def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
+def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center', radius=0.5,
                     pot_test_width=2**-12):
     """
     Return the sum of a given quantity (e.g. the total mass.) over a region defined by filter of a given cloud (identified by ds). 
@@ -35,7 +35,7 @@ def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
 
     if dataset is None:
         # ad = ds.all_data()
-        ad = ds.sphere('c', radius=0.5)
+        ad = ds.sphere('c', radius=radius)
     else:
         ad = dataset
     if filter is None:
@@ -139,7 +139,7 @@ def get_cloud_value(ds, var, dataset=None, filter=None, pot_ref='center',
     return np.nan
 
 
-def describe_cloud(jobfolder, out, variables, filter):
+def describe_cloud(jobfolder, out, variables, filter, radius=0.5):
     """
     Describe the parameters of a cloud at a given snapshot
 
@@ -153,23 +153,15 @@ def describe_cloud(jobfolder, out, variables, filter):
         A dictionary of all parameters
     """
 
-    # snap = RamsesSnapshot(jobfolder, out)
-    # ds = snap._ds
-    # dataset = ds.sphere('c', radius=0.5)
     # filter = "obj['density'].in_units('cm**-3', equivalence='number_" \
     #          "density', mu=1.4) > 3"
-    ds = rt.utilities.my_yt_load(jobfolder, out)
     # nthresh = 3 * 1.4 * mH
     # filter = f"obj['density'] > {nthresh}"
+    ds = rt.utilities.my_yt_load(jobfolder, out)
     ret = {}
     for var in variables:
-        # y = get_cloud_value(ds, var, dataset)
-        # task = CacheRun(get_cloud_value)
-        # task.ForceReplaceCache()
-        # y = task.Run(snap, var, filter=filter)
-        y = CacheRun(get_cloud_value, 1)(ds, var, filter=filter)
+        y = CacheRun(get_cloud_value, 0)(ds, var, filter=filter, radius=radius)
         ret[var] = (float(y.in_cgs()), str(y.in_cgs().units))
-    # make slice plot of the density and temperature
     return ret
 
 
