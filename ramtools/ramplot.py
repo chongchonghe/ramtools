@@ -16,11 +16,12 @@ import yt
 from typing import Dict, Any
 import hashlib
 import json
+from numpy.linalg import norm
 
 # from ramtools import ytfast
 from . import ytfast, utilities
 from .units import AU
-from .plotutils import T_setup, den_setup
+from .plotutils import T_setup, den_setup, add_scalebar
 
 try:
     yt.set_log_level(40)
@@ -355,10 +356,12 @@ def plot_a_region(
         fields='den', kind='slc', axis='z', width=None,
         center_vel=None, L=None, direcs='face',
         zlims={}, l_max=None, is_id=False,
-        bar_length=2e3, sketch=False,
+        bar_length=2e3,
+        sketch=False,
         time_offset='tRelax',
         is_set_size=True,
         is_time=True,
+        scalebar_length=None,
         streamplot_kwargs={},
         more_kwargs={},
 ):
@@ -369,7 +372,24 @@ def plot_a_region(
         out (int): output frame
         ds (yt.ds): yt.load instance
         center (list_like): the center of the region like in yt.SlicePlot
-        fields (str or tuple): the field to plot. The avaialble options are: 'den' or 'density' - density. 'logden' - log of density. 'T' or 'temperature' - temperature. 'T_vel_rela' - temperature overplot with velocity field. 'pressure' - thermal pressure. 'magstream' - stream lines of magnetic fields on top of density slice. The magnetic strength is be indicated by the color of the stream lines. 'beta' - plasma beta parameter. 'AlfMach' - Alfvenic Mach number. 'xHII' - hydrogen ionization fraction. 'mach' - thermal Mach number. 'mag' - magnetic field strength. 'vel' - velocity field on top of density slice. 'vel_rela' - relative velocity field, i.e. the velocity field in the frame with a velocity defined by center_vel. 'mach2d' - thermal Mach number in the plane. 'p_mag' - magnetic pressure. 
+        fields (str or tuple): the field to plot. The avaialble options are:
+            'den' or 'density' - density.
+            'logden' - log of density.
+            'T' or 'temperature' - temperature.
+            'T_vel_rela' - temperature overplot with velocity field.
+            'pressure' - thermal pressure.
+            'magstream' - stream lines of magnetic fields on top of density slice.
+                The magnetic strength is be indicated by the color of the stream lines.
+            'beta' - plasma beta parameter.
+            'AlfMach' - Alfvenic Mach number.
+            'xHII' - hydrogen ionization fraction.
+            'mach' - thermal Mach number.
+            'mag' - magnetic field strength.
+            'vel' - velocity field on top of density slice.
+            'vel_rela' - relative velocity field, i.e. the velocity field in the frame
+                with a velocity defined by center_vel.
+            'mach2d' - thermal Mach number in the plane.
+            'p_mag' - magnetic pressure.
         kind (str): 'slc' or 'prj'. Default: 'slc'
         axis (str or int): One of (0, 1, 2, 'x', 'y', 'z').
         width (float or tuple): width of the field of view. e.g. 0.01,
@@ -379,7 +399,8 @@ def plot_a_region(
         L (list_like): the line-of-sight vector. Will overwrite axis.
             Default: None
         direcs (str): 'face' or 'edge'. Will only be used if L is not None.
-        zlims (dict): The limits of the fields. e.g. {'density': [1e4, 1e8]},
+        zlims (dict): The limits of the fields. e.g.
+            {'density': [1e4, 1e8]},
             {'B': [1e-5, 1e-2]} (the default of B field).
         l_max (int):
         is_id (bool): toggle marking sink ID (the order of creation)
@@ -393,8 +414,18 @@ def plot_a_region(
             float: time in Myr
         is_set_size (bool): toggle setting figure size to 6 to make texts
             bigger. Default: True.
-        streamplot_kwargs (dict): More kwargs for plt.streamplot that is used when fields='magstream'. Default: {}
+        scalebar_length (bool): the length of a scalebar to plot at the 
+            bottom-right corner. e.g. (2, 'pc'), (1000, 'AU')
+        streamplot_kwargs (dict): More kwargs for plt.streamplot that is used
+            when fields='magstream'. Default: {}
         more_kwargs (dict): more field-specific kwargs. Default: {}
+            plot_cb (bool): toggle plotting the first colorbar for the main field
+            plot_cb2 (bool): toogle plotting the second colorbar for the
+                secondary field (e.g. magnetic or velocity field lines)
+            cb2_orientation (str): either 'vertical' or 'horizontal'
+            cb2_dark_background (bool): toggle plot cb2 with white axes
+            cb_axis (plt axis): the plt axis to plot the first colorbar on
+            cb2_axis (plt axis): the plt axis to plot the second colorbar on
 
     Returns:
         yt figure or plt.figure
@@ -511,8 +542,8 @@ def plot_a_region(
             Bz = (data["z-Bfield-left"] + data["z-Bfield-right"]) / 2.
             B = yt.YTArray([Bx, By, Bz])
             return np.tensordot(north, B, 1)
-        ds.add_field(('gas', 'rel_B_1'), function=_rel_B_1)
-        ds.add_field(('gas', 'rel_B_2'), function=_rel_B_2)
+        ds.add_field(('gas', 'rel_B_1'), function=_rel_B_1, sampling_type='cell')
+        ds.add_field(('gas', 'rel_B_2'), function=_rel_B_2, sampling_type='cell')
     if fields in ['vel_rela', 'mach2d']:
         assert north is not None
         def _rel_vel_1(_field, data):
@@ -593,8 +624,13 @@ def plot_a_region(
             if zlims[gas_field] is not None:
                 p.set_zlim(gas_field, *zlims[gas_field])
         if is_time:
-            p.annotate_timestamp(time_format='{time:.2f} {units}',
+            if time_unit == "Myr":
+                thefmt = ".1f"
+            elif time_unit == "kyr":
+                thefmt = ".0f"
+            p.annotate_timestamp(time_format='t = {time:' + thefmt + '} {units}',
                                  time_offset=time_offset,
+                                 time_unit=args.time_unit,
                                  text_args={'fontsize':8,
                                             'color':'w'},
                                  corner='upper_left',
@@ -649,10 +685,7 @@ def plot_a_region(
             bounds = [-hw, hw, -hw, hw]
             size = 2 ** 10
             frb = yt.FixedResolutionBuffer(sl, bounds, [size, size])
-            m_h = 1.6735575e-24
-            mu = 1.4
-            den = frb['density'].value / (mu * m_h)
-            unitB = utilities.get_unit_B(ds)
+            unitB = utilities.get_unit_B_new(ds)
             logger.info(f"unitB.value = {unitB.value}")
             Bx = frb['rel_B_1'].value * unitB.value  # Gauss
             By = frb['rel_B_2'].value * unitB.value  # Gauss
@@ -661,9 +694,23 @@ def plot_a_region(
             hw_au = hw * r.unit_l / AU
             grid_base = np.linspace(-hw_au, hw_au, size)
             bounds_au = [-hw_au, hw_au, -hw_au, hw_au]
+            m_h = 1.6735575e-24
+            mu = 1.4
+            den = frb['density'].value / (mu * m_h)
+            # left = [cc - hw for cc in center]
+            # right = [cc + hw for cc in center]
+            # box = ds.box(left, right, fields=[('gas', 'density')])
+            # proj = ds.proj(("gas", "density"), "x", center=center,
+            #                data_source=box, weight_field=('gas', 'density'),
+            #                north_vector=north,
+            #                )
+            # bounds_box = [center[1] - hw, center[1] + hw, center[2] - hw, center[2] + hw]
+            # frb2 = yt.FixedResolutionBuffer(proj, bounds_box, [size, size])
+            # den = frb2[('gas', 'density')].value / (mu * m_h)
         else:
+            hw = width / 2.
+            hw_au = hw * r.unit_l / AU
             den = np.random.random([3, 3])
-            hw_au = 10
             den_zlim = [None, None]
             bounds_au = [-hw_au, hw_au, -hw_au, hw_au]
 
@@ -681,27 +728,29 @@ def plot_a_region(
             xlim=[-hw_au, hw_au],
             ylim=[-hw_au, hw_au]
         )
-        cmap = mpl.cm.get_cmap("Greens", 6, )
-        Bvmin, Bvmax = -5, -2
+        cmap = mpl.cm.get_cmap("Greens", 6)
+        # cmap = mpl.cm.get_cmap("Greens_r", 6)
+        Bvmin, Bvmax = 1, 4
         if "Blims_log" in more_kwargs.keys():
             Bvmin, Bvmax = more_kwargs["Blims_log"]
+        if "logB" in zlims.keys():
+            Bvmin, Bvmax = zlims['logB']
         if "B" in zlims.keys():
-            Bvmin = np.log10(zlims['B'][0])
-            Bvmax = np.log10(zlims['B'][1])
+            Bvmin, Bvmax = np.log10(zlims['B'])
         colornorm_stream = colors.Normalize(vmin=Bvmin, vmax=Bvmax)
-        # streamplot_kwargs = {}
-        # if "streamplot" in more_kwargs.keys():
-        #     streamplot_kwargs = more_kwargs["streamplot"]
-        # linewidth = 0.2
+        linewidth = 0.8
         if "stream_linewidth" in more_kwargs.keys():
             linewidth = more_kwargs["stream_linewidth"]
+        stream_den = 0.8
+        if "stream_den" in more_kwargs.keys():
+            stream_den = more_kwargs["stream_den"]
         if not sketch:
-            logmag = np.log10(Bmag)
+            # logmag = np.log10(Bmag)
             # scaled_mag = (logmag - Bvmin) / (Bvmax - Bvmin)
             strm = ax.streamplot(grid_base, grid_base, Bx, By,
-                                 color=np.log10(Bmag),
-                                 density=1.2,
-                                 # linewidth=linewidth,
+                                 color=np.log10(Bmag) + 6,  # micro Gauss
+                                 density=stream_den,
+                                 linewidth=linewidth,
                                  # linewidth=1.5 * scaled_mag,
                                  # cmap='Greens',
                                  cmap=cmap,
@@ -709,42 +758,70 @@ def plot_a_region(
                                  arrowsize=0.5,
                                  **streamplot_kwargs,
                                  )
+        # if is_time:
+        #     if time_unit == "Myr":
+        #         thefmt = 't = {:.1f} Myr'
+        #     elif time_unit == "kyr":
+        #         thefmt = "t = {:.0f} kyr"
+        #     ax.text(thefmt.format(time - time_offset),  color='w', )
         # plt.subplots_adjust(right=0.8)
         plot_cb = True
-        plot_cb2 = True
         if 'plot_cb' in more_kwargs.keys():
             plot_cb = more_kwargs['plot_cb']
+        plot_cb2 = True
         if 'plot_cb2' in more_kwargs.keys():
             plot_cb2 = more_kwargs['plot_cb2']
+        cb2_orientation = 'vertical'
+        if 'cb2_orientation' in more_kwargs:
+            cb2_orientation = more_kwargs['cb2_orientation']
+        cb2_dark_background = False
+        if 'cb2_dark_background' in more_kwargs:
+            cb2_dark_background = more_kwargs['cb2_dark_background']
+            
         if plot_cb:
             if 'cb_axis' in more_kwargs.keys():
-                ax2 = more_kwargs['cb_axis']
+                ax1 = more_kwargs['cb_axis']
                 # pos0 = ax.get_position()
                 # cbaxis = fig.add_axes([pos0.x1, pos0.y0, 0.06, pos0.height])
                 # cb = plt.colorbar(im, cax=cbaxis)
                 cb2 = mpl.colorbar.ColorbarBase(
-                    ax2, orientation='vertical',
+                    ax1, orientation='vertical',
                     cmap=mpl.cm.get_cmap("inferno"),
                     norm=colornorm_den,
                 )
             else:
                 cb2 = fig.colorbar(im, ax=ax, pad=0)
             cb2.set_label("log $n$ (cm$^{-3}$)")
+
         if plot_cb2:
-            if 'cb2_axis' in more_kwargs.keys():
-                ax2 = more_kwargs['cb2_axis']
-            elif plot_cb:
-                pos1 = ax.get_position()
-                ax2 = fig.add_axes([pos1.x1 + .15, pos1.y0, 0.02, pos1.height])
-            else:
-                pos1 = ax.get_position()
-                ax2 = fig.add_axes([pos1.x0, pos1.y0, 0.02, pos1.height])
-            colornorm2 = colors.Normalize(vmin=den_zlim[0], vmax=den_zlim[1])
-            cb2 = mpl.colorbar.ColorbarBase(
-                ax2, orientation='vertical', cmap=cmap, norm=colornorm_stream,
-                # ticks=[-4, -3, -2]
-            )
-            cb2.set_label("log B (Gauss)")
+            plt.draw()
+            styles = []
+            if cb2_dark_background:
+                styles = ['dark_background']
+            with plt.style.context(styles):
+                if 'cb2_axis' in more_kwargs.keys():
+                    ax2 = more_kwargs['cb2_axis']
+                elif plot_cb:
+                    pos1 = ax.get_position()
+                    ax2 = fig.add_axes([pos1.x1 + .15, pos1.y0, 0.02, pos1.height])
+                else:
+                    pos1 = ax.get_position()
+                    ax2 = fig.add_axes([pos1.x0, pos1.y0, 0.02, pos1.height])
+                cb2 = mpl.colorbar.ColorbarBase(
+                    ax2, orientation=cb2_orientation, cmap=cmap, norm=colornorm_stream,
+                    # ticks=[-4, -3, -2]
+                )
+                # cb2.set_label("log B (Gauss)")
+                cb2.set_label(r"log B ($\mu$G)")
+                
+        # add scale bar, assuming axies units is AU
+        if scalebar_length is not None:
+            bar_leng = scalebar_length
+            coeff_str, unit = bar_leng
+            leng = to_boxlen(bar_leng, ds) / to_boxlen((1, 'AU'), ds)
+            label = f"{coeff_str} {unit}"
+            add_scalebar(ax, leng, label=label, right=0.94, fontsize="x-small")
+                
         # plt.savefig(fs['magstream'], dpi=300)
         return fig
 

@@ -83,7 +83,8 @@ class CacheFile(object):
 
 class CacheRun():
 
-    def __init__(self, function, filename, force_replace_cache=False, flag=''):
+    def __init__(self, function, filename="global", 
+                 force_replace_cache=False, flag=''):
         """
 
         Args:

@@ -63,7 +63,8 @@ Examples
         self.fields = fields
         self.ds_container = {}
         self.ds1 = None
-        self.get_ds()
+        if self.get_ds() == 1:
+            print("MyWarning: Failed to load a RAMSES output")
         if self.get_units():
             self.success = False
         else:
@@ -112,6 +113,10 @@ Examples
         # self.n_colden_H = np.double(self.unitDen2Hcc * self.unit_l)
         return 0
 
+    def get_output_path(self, out):
+        """Return the path to output folder"""
+        return "{0}/output_{1:05d}".format(self.jobPath, out)
+
     def get_info_path(self, out):
         """Return the path to info_out.txt"""
         return "{0}/output_{1:05d}/info_{1:05d}.txt".format(
@@ -128,6 +133,11 @@ Examples
             else:
                 self.ds_container[out] = yt.load(self.get_info_path(out), fields=self.fields)
         return self.ds_container[out]
+
+    def delete_ds(self, out):
+        """ Remove a ds from self.ds_container """
+        if out in self.ds_container:
+            del self.ds_container[out]
 
     def get_sink_path(self, out):
         """Return the path to sink_*.csv """
@@ -293,9 +303,9 @@ Examples
             plot.annotate_marker(
                 pos, 'o', coord_system='data',
                 plot_args={'color': colors(mass_scaled),
-                           's': 30,
+                           's': 20,
                            'zorder': zo,
-                           'linewidths': 0.3,
+                           'linewidths': 0.6, # 0.3
                            'edgecolors': 'k' if withedge else 'face'})
             if is_id:
                 plot.annotate_text(pos, str(indices[i]), coord_system='data',

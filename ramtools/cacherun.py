@@ -64,7 +64,8 @@ class CacheFile(object):
         pikfile = open(fo, "wb")
         pik.dump(data,pikfile)
         pikfile.close()
-        print(f"Saving cache file {fo}.")
+        if ISLOG:
+            print(f"Saving cache file {fo}.")
         
     def Load(self):
         # Load the (binary) data file

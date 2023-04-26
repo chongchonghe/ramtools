@@ -18,6 +18,9 @@ Example
 
 import yt
 from . import ytfast
+from matplotlib.patches import Rectangle
+from matplotlib.font_manager import FontProperties
+from .cacherun import CacheRun
 
 def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
               weight_field="density", is_time=False):
@@ -48,6 +51,34 @@ def den_setup(p, zlim=None, time_offset=None, mu=1.4, unit='number_density',
     if is_time:
         p.annotate_timestamp(time_format='{time:.3f} {units}',
                              time_offset=time_offset)
+
+def tag_snap(p, time_offset=None, is_time=True):
+    if is_time:
+        p.annotate_timestamp(time_format='{time:.3f} {units}',
+                             time_offset=time_offset)
+def colden_setup(p, zlim=None):
+    """
+    Args:
+        p (YT plot):
+        zlim (tuple): limits of the field
+        mu (float): the mean particle weight. The mass density rho = mu * n
+        quant (str): 'volume' or 'column' for volumetric and column density
+    """
+
+    if "density" in p.fields:
+        fi = "density"
+    elif ("gas", "density") in p.fields:
+        fi = ("gas", "density")
+    else:
+        print("Failed to run den_setup: 'density' field not found")
+        return
+    if zlim is not None:
+        p.set_zlim(fi, zlim[0], zlim[1])
+    p.set_cmap(fi, 'viridis')
+    # if is_time:
+    #     p.annotate_timestamp(time_format='{time:.3f} {units}',
+    #                          time_offset=time_offset)
+    return
 
 def T_setup(p, zlim=None, time_offset=None, is_time=False):
     if "temperature" in p.fields:
@@ -143,7 +174,7 @@ def plot_prj(ds, center, width, sinks, field='density', axis='x',
     return p
 
 
-def overplot_time_tag(time, ax, loc='upper left', **kwargs):
+def overplot_time_tag(time, ax, loc='upper left', unit='Myr', **kwargs):
     """
     Overplot time tag on top-left corner
 
@@ -165,5 +196,110 @@ def overplot_time_tag(time, ax, loc='upper left', **kwargs):
     elif loc == 'upper center':
         pos = [.5, .95]
         va, ha = 'top', 'center'
-    t = f"t = {time:.1f} Myr"
+    if unit == 'Myr':
+        t = f"t = {time:.1f} Myr"
+    else:
+        t = f"t = {1000*time:.0f} kyr"
+        # t = f"{1000*time:.0f} kyr"
     ax.text(*pos, t, va=va, ha=ha, transform=ax.transAxes, **kwargs)
+
+
+def add_scalebar(ax, length, label, h=0.014, left=0.03, right=None,
+                 color='w', gap=0.01, **kwargs):
+    """ Add a scalebar to a figure
+    Author: ChongChong He
+
+    Parameters
+    ----------
+    ax: matplotlib axes
+        The axes passed to add_scalebar
+    length: double
+        The length of the scalebar in code units
+    label: string
+        The scalebar label
+    h: double
+        The height of the scalebar relative to figure height
+    color: string
+        color
+    **kwargs: dict
+        kwargs passed to ax.text
+
+    Examples
+    --------
+    >>> im = plt.imread("/Users/chongchonghe/Pictures/bj.jpg")[:800, :800, :]
+    >>> plt.imshow(im)
+    >>> ax = plt.gca()
+    >>> add_scalebar(ax, 200, '3 pc')
+    >>> plt.show()
+
+    """
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    if right is None:
+        left_pos = xlim[0] + left * (xlim[1] - xlim[0])
+    else:
+        left_pos = xlim[0] + right * (xlim[1] - xlim[0]) - length
+    bottom = 0.03
+    bottom_pos = ylim[0] + bottom * (ylim[1] - ylim[0])
+    rect = Rectangle((left_pos, bottom_pos), length, h*(ylim[1] - ylim[0]),
+                     facecolor=color, edgecolor=None)
+
+    ax.add_patch(rect)
+    ax.text(
+        left_pos + 0.5*length,
+        ylim[0] + (h + bottom + gap) * (ylim[1] - ylim[0]),
+        label,
+        ha='center', va='bottom',
+        color=color,
+        **kwargs,
+        )
+
+
+def annotate_axis_label(ax, axis, **kwargs):
+    # add axis labels
+    font = FontProperties()
+    font.set_name('Open Sans')
+    labelx, labely = {'x': ['y', 'z'], 'y': ['z', 'x'], 'z': ['x', 'y']}[axis]
+    text_kwargs = dict(color='w', fontsize='large')
+    text_kwargs.update(kwargs)
+    ax.text(0.5, 0.02, labelx, transform=ax.transAxes, fontproperties=font,
+            va='bottom', ha='center', **text_kwargs)
+    ax.text(0.02, 0.5, labely, transform=ax.transAxes, fontproperties=font,
+            va='center', ha='left', **text_kwargs)
+
+
+def annotate_box(p, center, width, axis,
+                 plot_args={"linewidth": 1, "color": 'w'}):
+    if axis == 'x':
+        thecenter = (center[1], center[2])
+    elif axis == 'y':
+        thecenter = (center[0], center[2])
+    elif axis == 'z':
+        thecenter = (center[0], center[1])
+    r = []
+    halfwidth = width / 2
+    r.append([thecenter[0] - halfwidth, thecenter[1] - halfwidth])
+    r.append([thecenter[0] + halfwidth, thecenter[1] - halfwidth])
+    r.append([thecenter[0] + halfwidth, thecenter[1] + halfwidth])
+    r.append([thecenter[0] - halfwidth, thecenter[1] + halfwidth])
+    for i in range(4):
+        if axis == 'x':
+            r[i] = [0.5] + r[i]
+        elif axis == 'y':
+            r[i] = [r[i][0], 0.5, r[i][1]]
+        elif axis == 'z':
+            r[i] = r[i] + [0.5]
+    p.annotate_line(r[0], r[1], plot_args=plot_args)
+    p.annotate_line(r[1], r[2], plot_args=plot_args)
+    p.annotate_line(r[2], r[3], plot_args=plot_args)
+    p.annotate_line(r[3], r[0], plot_args=plot_args)
+
+
+def base_find_peak_density_location(ds, box_l, box_r):
+    zoombox = ds.box(box_l, box_r)
+    center_cm = zoombox.argmax('density')
+    return [center_cm[i].to('cm').value / ds.length_unit.to('cm').value for i in range(3)]
+
+
+def find_peak_density_location(ds, box_l, box_r):
+    return CacheRun(base_find_peak_density_location)(ds, box_l, box_r)

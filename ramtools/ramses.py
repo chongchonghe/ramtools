@@ -9,9 +9,14 @@ Attributes:
 from . import center
 from . import plotutils as pltu
 from .utilities import my_yt_load, read_zoom_radius, read_zoom_center
+from . import utilities
 from .ramsesbase import *
 import warnings
 import f90nml
+try:
+    from .yt_field_descrs import FIELDS
+except:
+    FIELDS = None
 
 RAM_DIR = None
 
@@ -20,7 +25,7 @@ class Ramses(RamsesBase):
     methods defined in this class may not work for another person's RAMSES
     simulations."""
 
-    def __init__(self, jobdir=None, jobid=None, ram_dir=None, fields=None):
+    def __init__(self, jobdir=None, jobid=None, ram_dir=None, fields=FIELDS):
         """Declare a Ramses instance for a given job. The job can be
         specified by one of the following options:
 
@@ -161,7 +166,7 @@ class Ramses(RamsesBase):
                     #par = parnew
                     m0 = mnew
 
-    def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left',
+    def overplot_time_tag(self, ax, out, timeshift=0, loc='upper left', unit="Myr",
                           **kwargs):
         """
         Overplot time tag on top-left corner
@@ -175,7 +180,7 @@ class Ramses(RamsesBase):
     
         """
     
-        pltu.overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc,
+        pltu.overplot_time_tag(self.get_time(out) - timeshift, ax, loc=loc, unit=unit,
                           **kwargs)
 
     def get_out_after(self, t):
@@ -201,6 +206,9 @@ class Ramses(RamsesBase):
         return "{}/movie1/sink_{:05d}.txt".format(self.jobPath, num)
 
     def read_movie_sink_as_particle(self, num):
+        """ Read sink_xxxxx.csv in job/movie1 as particle array containing
+        the following columns: m, x, y, z, vx, vy, vz, all in code units """
+        
         fp = self.movie_sink_path(num)
         if not os.path.isfile(fp):
             raise FileNotFoundError
@@ -219,5 +227,32 @@ class Ramses(RamsesBase):
     def read_zoom_radius(self, idx=-1):
         nml = os.path.join(self.jobPath, "run.sink.nml") 
         return read_zoom_radius(nml, idx)
+
+    def get_age(self, out):
+        """ return the age in Myr of all stars as an array. """
+
+        # data = np.loadtxt("{0}/output_{1:05d}/sink_{1:05d}.csv".
+        #                   format(self.jobPath, out), delimiter=',')
+        data = np.loadtxt(self.get_sink_path(out), delimiter=',')
+        if not len(data):
+            return None
+        elif len(np.shape(data)) == 1:
+            data = np.array([data])
+        age = data[:, -3]
+        # age = age * unit['t'] / myr2s
+        age = age * self.unit_t / units.Myr
+        return age
+
+    def is_sink_alive(self, out, mass_shift=1.0):
+        # masses, bad = self.get_sink_mass(out)
+        # if bad:
+        #     return []
+        try:
+            masses = self.get_sink_masses(out)
+        except NoSinkParticle:
+            return []
+        lifetime = utilities.mass_to_lifetime(mass_shift * masses)
+        age = self.get_age(out)
+        return age < lifetime
 
 

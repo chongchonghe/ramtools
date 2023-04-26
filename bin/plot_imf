@@ -23,7 +23,15 @@ except:
 
 
 def get_args():
-    args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
+    args = argparse.ArgumentParser(description=("""
+A program to plot stellar mass functions of a RAMSES simulation. 
+
+Examples:
+>>> plot_imf ..
+>>> plot_imf .. 10-20
+>>> plot_imf .. 10-20 -c 0.6,0.6,0.6 -w 10,pc
+"""),
+        formatter_class=argparse.RawTextHelpFormatter)
     args.add_argument("jobdir", default="..", nargs="?",
                       help="Path to the simulation directory")
     args.add_argument("outs", default="all", nargs="?",
@@ -43,15 +51,27 @@ def get_args():
                       help="Default: totmass, = sum(sink_masses)")
     args.add_argument("--kroupa-min", default="min",
                       help="Default: sinkmin, = max(min(sink_masses), 10**-1.25)")
-    args.add_argument("--overwrite", action="store_true",
+    args.add_argument("-o", "--overwrite", action="store_true",
                       help="Toggle overwrite existing figures.")
+    args.add_argument("--short", action="store_true",
+                      help="Make short figures instead of a square one.")
+    args.add_argument("--ylim", nargs=2, type=float,
+                      help="Set ylim.")
+    args.add_argument("--xlim", nargs=2, type=float,
+                      help="Set xlim.")
+    args.add_argument("--inzoombox", action="store_true",
+                      help="with center=integer, use sink particles in zoombox only.")
+    args.add_argument("--t0", default="0", help="Define t0. If not 'off', will annotate timestamp,"
+                                                "and will set t=0 to the t0th frame")
+    args.add_argument("--prefix", default="", 
+                      help="add prefix to image filename")
 
     return args.parse_args()
 
 
 def main(args):
     os.makedirs(args.to, exist_ok=1)
-    os.makedirs(os.path.join(args.to, "pdfs"), exist_ok=1)
+    # os.makedirs(os.path.join(args.to, "pdfs"), exist_ok=1)
 
     use_sink_as_center = False
     if args.center == 'c':
@@ -92,6 +112,8 @@ def main(args):
         print(s.jobPath, "does not exist or is not a RAMSES job directory")
         return
     width = ramsesbase.to_boxlen(width, s.ds1)
+    zoomc = s.read_zoom_center()
+    zoomr = s.read_zoom_radius()
     r = s
     if args.outs == 'all':
         outs = r.get_all_outputs()
@@ -107,14 +129,28 @@ def main(args):
         else:
             outs = [int(i) for i in args.outs.split(',')]
     for out in outs:
-        fn = f"{args.to}/imf_out_{out}.png"
+        fn = f"{args.to}/{args.prefix}imf_out_{out}.pdf"
+        fn_png = f"{args.to}/imf_out_{out}.png"
+        if os.path.exists(fn_png):
+            os.system(f"rm -f {fn_png}")
+            print(f"Removed {fn_png}")
         if not args.overwrite and os.path.exists(fn):
             print(f"{fn} exists. Skipped")
             continue
         if use_sink_as_center:
             try:
-                center = r.get_sink_positions(out)[sink_center] / r.boxlen
-                # print("center =", center)
+                pos = r.get_sink_positions(out) / r.boxlen
+                if args.inzoombox:
+                    inside = np.max(pos - zoomc, axis=1) <= zoomr
+                    if np.sum(inside) == 0:
+                        print(f"No sink particles inside zoombox in frame {out}")
+                        continue
+                    center = pos[inside][sink_center]
+                else:
+                    center = pos[sink_center]
+                # center = r.get_sink_positions(out)[sink_center] / r.boxlen
+            except FileNotFoundError:
+                continue
             except ramses.NoSinkParticle:
                 print(f"No sink particle found in out {out}.")
                 continue
@@ -147,10 +183,21 @@ def main(args):
             smax = np.max(masses)
         else:
             smax = float(smax)
+        lims = {}
+        if args.xlim is not None: lims["xlim"] = args.xlim
+        if args.ylim is not None: lims["ylim"] = args.ylim
+        if args.t0 == "off":
+            t0 = None
+        else:
+            t0 = int(args.t0)
         f, ax = s.quick_plot_IMF(out=out, is_kroupa=args.kroupa, masses=m_inside,
-                                 kroupa_kwargs={"m_min": smin, "m_max": smax})
-        f.savefig(fn, dpi=300)
-        f.savefig(f"{args.to}/pdfs/imf_out_{out}.pdf")
+                                 kroupa_kwargs={"m_min": smin, "m_max": smax},
+                                 time0=t0, **lims)
+        if args.short:
+            f.set_size_inches([4.6, 1.6])
+        f.savefig(fn)
+        # f.savefig(fn, dpi=300)
+        # f.savefig(f"{args.to}/pdfs/imf_out_{out}.pdf")
         print(fn, 'saved')
     return
 
