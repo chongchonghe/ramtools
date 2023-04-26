@@ -113,6 +113,10 @@ Examples
         # self.n_colden_H = np.double(self.unitDen2Hcc * self.unit_l)
         return 0
 
+    def get_output_path(self, out):
+        """Return the path to output folder"""
+        return "{0}/output_{1:05d}".format(self.jobPath, out)
+
     def get_info_path(self, out):
         """Return the path to info_out.txt"""
         return "{0}/output_{1:05d}/info_{1:05d}.txt".format(

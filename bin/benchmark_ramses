@@ -97,8 +97,6 @@ def plot_dt_vs_coarse(jobdir, ax=None, out_fmt="slurm-*.out"):
     ts = np.array(ts)
     ns = np.array(ns)
     dts = (ts[1:] - ts[:-1]) / (ns[1:] - ns[:-1])
-    mean = np.mean(dts)
-    std = np.std(dts)
     myr_to_s = 3.154e13
     try:
         unit_t = get_info_arg(outs[0], 'unit_t')
@@ -108,9 +106,14 @@ def plot_dt_vs_coarse(jobdir, ax=None, out_fmt="slurm-*.out"):
     t_c_to_kyr = unit_t / myr_to_s * 1e3
 
     # place a text box in upper left in axes coords
-    textstr = '\n'.join([
-        't_coarse = {:.2e} = {:.1f} kyr'.format(mean, mean * t_c_to_kyr),
-        'std = {:.2e} = {:.1f} kyr'.format(std, std * t_c_to_kyr)])
+    if len(dts) > 0:
+        mean = np.mean(dts)
+        std = np.std(dts)
+        textstr = '\n'.join([
+            't_coarse = {:.2e} = {:.1f} kyr'.format(mean, mean * t_c_to_kyr),
+            'std = {:.2e} = {:.1f} kyr'.format(std, std * t_c_to_kyr)])
+    else:
+        textstr = f"dts = {dts}"
     ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize='large',
             va='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     ax.set_xlabel('n_coarse')

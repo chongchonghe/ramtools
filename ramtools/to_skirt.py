@@ -10,7 +10,7 @@ import argparse
 from ramtools.ramses import Ramses, NoSinkParticle
 from ramtools import utilities, units
 
-def to_skirt(jobid, output, fn_out, family='BC', center=None, width=np.inf,
+def to_skirt(jobid=None, output=None, fn_out=None, family='BC', center=None, width=np.inf,
              width_boxlen=None, letdie=False, skip_exist=True, jobdir=None):
     """ Make particle data for SKIRT run
 
@@ -79,7 +79,7 @@ def to_skirt(jobid, output, fn_out, family='BC', center=None, width=np.inf,
         width = width_boxlen * boxlen   # code unit
     pick = np.max(np.abs(loc), axis=1) <= width / 2
     if letdie:
-        is_alive = r.is_sink_alive(output)
+        is_alive = r.is_sink_alive(output, mass_shift=0.4)
         pick = np.logical_and(pick, is_alive)
     n = np.sum(pick)
     if n == 0:

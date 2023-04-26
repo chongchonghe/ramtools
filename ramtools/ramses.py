@@ -9,6 +9,7 @@ Attributes:
 from . import center
 from . import plotutils as pltu
 from .utilities import my_yt_load, read_zoom_radius, read_zoom_center
+from . import utilities
 from .ramsesbase import *
 import warnings
 import f90nml
@@ -226,5 +227,32 @@ class Ramses(RamsesBase):
     def read_zoom_radius(self, idx=-1):
         nml = os.path.join(self.jobPath, "run.sink.nml") 
         return read_zoom_radius(nml, idx)
+
+    def get_age(self, out):
+        """ return the age in Myr of all stars as an array. """
+
+        # data = np.loadtxt("{0}/output_{1:05d}/sink_{1:05d}.csv".
+        #                   format(self.jobPath, out), delimiter=',')
+        data = np.loadtxt(self.get_sink_path(out), delimiter=',')
+        if not len(data):
+            return None
+        elif len(np.shape(data)) == 1:
+            data = np.array([data])
+        age = data[:, -3]
+        # age = age * unit['t'] / myr2s
+        age = age * self.unit_t / units.Myr
+        return age
+
+    def is_sink_alive(self, out, mass_shift=1.0):
+        # masses, bad = self.get_sink_mass(out)
+        # if bad:
+        #     return []
+        try:
+            masses = self.get_sink_masses(out)
+        except NoSinkParticle:
+            return []
+        lifetime = utilities.mass_to_lifetime(mass_shift * masses)
+        age = self.get_age(out)
+        return age < lifetime
 
 

@@ -22,6 +22,23 @@ def mass_to_radius(mass):
 
 TLIM = [mass_to_temp(10 ** -1), mass_to_temp(10 ** 3)]
 
+def mass_to_lifetime_scale(mass):
+    """ Schaller et al. (1992). (See also MBW Eq. 10.72)
+    mass in solar mass
+    Return
+    ------
+    lifetime in Myr
+    """
+
+    lf_max = 1.4e4
+    nume = 2.5e3 + 6.7e2 * mass**2.5 + mass**4.5
+    deno = 3.3e-2 * mass**1.5 + 3.5e-1 * mass**4.5
+    lftm = nume / deno
+    # return min(lftm, lf_max)
+    return lftm
+
+mass_to_lifetime = np.vectorize(mass_to_lifetime_scale)
+
 def my_yt_load(job_path, out):
     """Quickly yt.load a job with the correct FIELDS
 
