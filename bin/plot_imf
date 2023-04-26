@@ -10,9 +10,17 @@ from ramtools import ytfast, ramses, Ramses, plotutils, imf, NoSinkParticle, ram
 import argparse
 import warnings
 from glob import glob
+try:
+    import scienceplots
+except:
+    pass
 warnings.filterwarnings("ignore")
 
-plt.style.use(['science', 'no-latex'])
+try:
+    plt.style.use(['science', 'no-latex'])
+except:
+    pass
+
 
 def get_args():
     args = argparse.ArgumentParser(description="A program to efficiently make slices/projections plots of a RAMSES simualtion. Examples:>>> plot_projection Job10 all z -t Job10/figures \n>>> plot_projection Job10 10-20 x,y,z -t Job10/figures -c 0.6,0.6,0,6 -w 10,pc -f den,temp -k slc,prj")
@@ -80,6 +88,9 @@ def main(args):
         width = float(args.width)
 
     s = imf.Sink(args.jobdir)
+    if s.ds1 is None:
+        print(s.jobPath, "does not exist or is not a RAMSES job directory")
+        return
     width = ramsesbase.to_boxlen(width, s.ds1)
     r = s
     if args.outs == 'all':

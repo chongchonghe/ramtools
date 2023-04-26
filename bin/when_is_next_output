@@ -4,15 +4,7 @@
 time
 Usage: time_outfile.py path-to-o-file time
 """
-
 from __future__ import print_function, division
-import sys
-import argparse
-import subprocess
-import time
-import numpy as np
-from glob import glob
-import f90nml
 
 def delete_lastline():
     "delete the last line in the STDOUT"
@@ -34,7 +26,7 @@ def readtime(s):
             flag = True
     return -1
 
-def main(fn, tend=None, N=None, outframe=None, nml=None):
+def main(fn, tend=None, N=None, outframe=None, nml=None, dt=3.0):
     
     if nml is None:
         nml="run.sink.nml"
@@ -57,7 +49,7 @@ def main(fn, tend=None, N=None, outframe=None, nml=None):
 
     count = 0
     while True:
-        time.sleep(2)
+        time.sleep(dt)
         result = subprocess.check_output("tail -n 3 {}".format(fn), shell=True)
         result = result.decode()
         tc1 = readtime(result)
@@ -103,17 +95,26 @@ def main(fn, tend=None, N=None, outframe=None, nml=None):
 
 if __name__ == "__main__":
 
+    import argparse
     DOCS = """ Predict the time remaining before the simulation reach a given
     time (in code unit) """
     PARSER = argparse.ArgumentParser(description=DOCS)
-    PARSER.add_argument('ofn', help='name of the .o file')
-    PARSER.add_argument('-f', type=int, help='output frame to target for')
+    PARSER.add_argument('input', help='name of the .o file')
+    PARSER.add_argument('-f', '--frame', type=int, help='output frame to target for')
     PARSER.add_argument('-tend', type=float, help='tend in code units to target for')
     PARSER.add_argument('-nml', help='path to the namelist file')
-    PARSER.add_argument('-N', type=int, default=5, help='the number of cycles to do one calculate')
+    PARSER.add_argument('-step', type=int, default=5, help='the number of cycles to do one calculate')
+    PARSER.add_argument('-dt', type=float, default=3.0, help='the gas of reading the namelist file')
     ARGS = PARSER.parse_args()
 
-    main(ARGS.ofn, ARGS.tend, ARGS.N, ARGS.f, ARGS.nml)
+    import sys
+    import subprocess
+    import time
+    import numpy as np
+    from glob import glob
+    import f90nml
+
+    main(ARGS.input, ARGS.tend, ARGS.step, ARGS.frame, ARGS.nml, ARGS.dt)
 
     # try:
     #     TEND = float(sys.argv[2])
