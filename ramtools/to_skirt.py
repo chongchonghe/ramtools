@@ -10,18 +10,20 @@ import argparse
 from ramtools.ramses import Ramses, NoSinkParticle
 from ramtools import utilities, units
 
-def to_skirt(jobid=None, output=None, fn_out=None, family='BC', center=None, width=np.inf,
-             width_boxlen=None, letdie=False, skip_exist=True, jobdir=None):
+
+def to_skirt(jobdir, output, l_max, fn_out, family='BC', center=None, width_box_frac=1.0, Z=0.02, letdie=False, skip_exist=True):
     """ Make particle data for SKIRT run
 
     Args:
-        jobid (str): will be overwritten by jobdir if jobdir is not None
-        output (int)
+        jobdir (str): RAMSES job directory
+        output (int): the output number
+        l_max (int): maximum level of AMR refinement. This is used to determine the sink particle size, assume R_sink = 2*dx and dx = box_size / 2**l_max.
         fn_out (str): output filename
-        center (float or array): center of the box in boxlen units. Default:
-            (.5, .5, .5)
-        width: width of the box in code unit (unit_l_code, not boxlen)
-        width_boxlen: width of the box in boxlen unit. Will overwrite width.
+        family (str): SED family. Default: 'BC'
+        center (float or array): center of the box in boxlen units. Default: (.5, .5, .5)
+        width_box_frac: width of the box as a fraction of the full simulation box. Default: 1.0
+        Z (float): metallicity. Default: solar (0.02)
+        letdie (bool): whether to let stars die depending on their ages. Default: False
     """
 
     if skip_exist and os.path.isfile(fn_out):
@@ -48,35 +50,24 @@ def to_skirt(jobid=None, output=None, fn_out=None, family='BC', center=None, wid
         print('Unrecognized SED', family)
         return 1
 
-    if jobdir is not None:
-        r = Ramses(jobdir=jobdir)
-    else:
-        r = Ramses(job_path=f'/startrek2nb/chongchong/Sam/Job{jobid}')
+    r = Ramses(jobdir=jobdir)
 
-    # get boxlen
     unitl2pc = r.unit_l_code / units.pc
-    boxlen = r.boxlen                   # in pc
-    Z = 0.02
-    l_max = 14
-    # l_max = r.l_max
+    boxlen = r.boxlen                   # in unit_l_code
     dx = boxlen / 2**l_max
     if center is None:
-        center = 0.5 * boxlen
+        center = 0.5 * boxlen           # scalar
     else:
-        center = np.array(center) * boxlen
-    print('center =', center)
+        center = np.array(center) * boxlen  # array
     output = int(output)
-    # fn = r.get_sink_path(output)
-    # particles = np.loadtxt(fn, delimiter=',')
     try:
         loc = r.get_sink_positions(output)  # code unit
     except NoSinkParticle:
         np.savetxt(fn_out, np.array([]), header=header, comments='')
-        print(fn_out, 'saved with empty content')
+        print("No sink particle file found.", fn_out, 'saved with empty content.')
         return
     loc -= center   # code unit
-    if width_boxlen is not None:
-        width = width_boxlen * boxlen   # code unit
+    width = width_box_frac * boxlen   # code unit
     pick = np.max(np.abs(loc), axis=1) <= width / 2
     if letdie:
         is_alive = r.is_sink_alive(output, mass_shift=0.4)
@@ -88,6 +79,7 @@ def to_skirt(jobid=None, output=None, fn_out=None, family='BC', center=None, wid
         return
     data = np.zeros([n, 8])
     data[:, :3] = loc[pick, :] * unitl2pc
+    # assuming sink particle size is 2*dx
     data[:, 3] = 2 * dx
     mass_to_temp_v = np.vectorize(utilities.mass_to_temp)
     mass_to_radius_v = np.vectorize(utilities.mass_to_radius)
@@ -105,11 +97,11 @@ def to_skirt(jobid=None, output=None, fn_out=None, family='BC', center=None, wid
         ncol = 7
         data[:, 4] = r.get_sink_masses(output)[pick]
         data[:, 5] = Z
-        particles = np.loadtxt(r.get_sink_path(out), delimiter=',')
+        particles = np.loadtxt(r.get_sink_path(output), delimiter=',')
         data[:, 6] = particles[pick, 11] * r.unit_t * U.s.to('Myr')
     elif family == 'CK':
         ncol = 8
-        mass = r.get_sink_masses(output)
+        mass = r.get_sink_masses(output)    # in Msun
         T19 = mass_to_temp_v(mass)
         R19 = mass_to_radius_v(mass)  # in Rsun
         Rsun = 695700.  # in km
