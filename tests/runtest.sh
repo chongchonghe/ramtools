@@ -1,6 +1,10 @@
-#/bin/zsh
+#!/bin/bash
 
 set -e
+
+python test_ytfast_CCH.py /priv/avatar/cche/data/2017-RAMSES/Job-highB/Job.M-C.3B 20
+
+exit 0
 
 export PYTHONPATH=..
 JOB="$1"
@@ -13,3 +17,6 @@ fi
 for f in tests/*.py; do
      python $f $JOB;
 done
+
+# "/priv/avatar/cche/data/2017-RAMSES/Job-highB/Job.M-C.3B/
+# fastplot("/startrek/chongchong/Projects/2017-RAMSES/Job2.2.2.v2/", 19)

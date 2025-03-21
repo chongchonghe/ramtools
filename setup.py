@@ -21,5 +21,14 @@ setup(
     # packages=["calc"],
     # entry_points={'console_scripts': ['calc=calc:main']},
     # entry_points={'console_scripts': ['calc=calc.__init__:main']},
-    install_requires=['yt>=3.6', 'astropy>=4.0', 'f90nml==1.1.1', ],
+    install_requires=[
+        'yt==4.0.1', 
+        'astropy>=4.0',
+        'f90nml==1.1.1',
+        'seaborn',
+        'scienceplots',
+        'scipy',
+        'h5py',
+        # 'academic_python @ git+https://github.com/chongchonghe/academic-python.git',
+        ],
 )
