@@ -679,6 +679,7 @@ def plot_a_region(
                              scale_text_format="{} km/s".format(ruler_v_kms))
         return p
     else:           # streamplot
+        use_col_den = False
         if not sketch:
             sl = ds.cutting(los_v, center, north_vector=north)
             hw = width / 2.
@@ -696,17 +697,37 @@ def plot_a_region(
             bounds_au = [-hw_au, hw_au, -hw_au, hw_au]
             m_h = 1.6735575e-24
             mu = 1.4
-            den = frb['density'].value / (mu * m_h)
-            # left = [cc - hw for cc in center]
-            # right = [cc + hw for cc in center]
-            # box = ds.box(left, right, fields=[('gas', 'density')])
-            # proj = ds.proj(("gas", "density"), "x", center=center,
-            #                data_source=box, weight_field=('gas', 'density'),
-            #                north_vector=north,
-            #                )
-            # bounds_box = [center[1] - hw, center[1] + hw, center[2] - hw, center[2] + hw]
-            # frb2 = yt.FixedResolutionBuffer(proj, bounds_box, [size, size])
-            # den = frb2[('gas', 'density')].value / (mu * m_h)
+
+            if "stream_use_colden" in more_kwargs.keys():
+                use_col_den = more_kwargs["stream_use_colden"]
+
+            if use_col_den:
+                scale_up = np.sqrt(3)
+                box_left = [cc - hw * scale_up for cc in center]
+                box_right = [cc + hw * scale_up for cc in center]
+                left = [cc - hw for cc in center]
+                right = [cc + hw for cc in center]
+                box = ds.box(box_left, box_right, fields=[('gas', 'density')])
+                axis_ = ['x', 'y', 'z'][np.argmax(np.abs(los_v))]
+                proj = ds.proj(("gas", "density"), axis, center=center, data_source=box, weight_field=None)
+                # idx1, idx2 = {'x': (1, 2), 'y': (0, 2), 'z': (0, 1)}[axis_]
+                idx1, idx2 = {'x': (1, 2), 'y': (2, 0), 'z': (0, 1)}[axis_]
+                # bounds_box = [center[idx1] - hw, center[idx1] + hw, center[idx2] - hw, center[idx2] + hw]
+                bounds_box = [left[idx1], right[idx1], left[idx2], right[idx2]]
+
+                # left = [cc - hw for cc in center]
+                # right = [cc + hw for cc in center]
+                # box = ds.box(left, right, fields=[('gas', 'density')])
+                # axis_ = ['x', 'y', 'z'][np.argmax(np.abs(los_v))]
+                # proj = yt.ProjectionPlot(ds, axis_, ('gas', 'density'), center=center, width=hw * 2, data_source=box, weight_field=None)
+                # idx1, idx2 = {'x': (1, 2), 'y': (0, 2), 'z': (0, 1)}[axis_]
+                # bounds_box = [left[idx1], right[idx1], left[idx2], right[idx2]]
+
+                frb2 = yt.FixedResolutionBuffer(proj, bounds_box, [size, size])
+                den = frb2[('gas', 'density')].value
+            else:
+                den = frb['density'].value / (mu * m_h)
+
         else:
             hw = width / 2.
             hw_au = hw * r.unit_l / AU
@@ -719,8 +740,8 @@ def plot_a_region(
             fig, ax = more_kwargs['figax']
         else:
             fig, ax = plt.subplots()
-        im = ax.imshow(np.log10(den), cmap='inferno', extent=bounds_au,
-                       vmin=den_zlim[0], vmax=den_zlim[1], origin='lower')
+        cmap = 'inferno' if not use_col_den else 'viridis'
+        im = ax.imshow(np.log10(den), cmap=cmap, extent=bounds_au, vmin=den_zlim[0], vmax=den_zlim[1], origin='lower')
         colornorm_den = colors.Normalize(vmin=den_zlim[0], vmax=den_zlim[1])
         ax.set(
             xlabel="Image x (AU)",
@@ -728,7 +749,11 @@ def plot_a_region(
             xlim=[-hw_au, hw_au],
             ylim=[-hw_au, hw_au]
         )
-        cmap = mpl.cm.get_cmap("Greens", 6)
+        if not use_col_den:
+            cmap = mpl.cm.get_cmap("Greens", 6)
+        else:
+            # cmap = mpl.cm.get_cmap("Reds", 6).reversed()
+            cmap = mpl.cm.get_cmap("Reds", 6)
         # cmap = mpl.cm.get_cmap("Greens_r", 6)
         Bvmin, Bvmax = 1, 4
         if "Blims_log" in more_kwargs.keys():
@@ -758,6 +783,12 @@ def plot_a_region(
                                  arrowsize=0.5,
                                  **streamplot_kwargs,
                                  )
+
+        if "contour" in more_kwargs.keys():
+            contour = more_kwargs["contour"]
+            if contour:
+                ax.contour(np.log10(den), levels=contour, colors='w', linewidths=1.0)
+
         # if is_time:
         #     if time_unit == "Myr":
         #         thefmt = 't = {:.1f} Myr'
@@ -779,6 +810,7 @@ def plot_a_region(
             cb2_dark_background = more_kwargs['cb2_dark_background']
             
         if plot_cb:
+            cmap = "inferno" if not use_col_den else "viridis"
             if 'cb_axis' in more_kwargs.keys():
                 ax1 = more_kwargs['cb_axis']
                 # pos0 = ax.get_position()
@@ -786,12 +818,15 @@ def plot_a_region(
                 # cb = plt.colorbar(im, cax=cbaxis)
                 cb2 = mpl.colorbar.ColorbarBase(
                     ax1, orientation='vertical',
-                    cmap=mpl.cm.get_cmap("inferno"),
+                    cmap=mpl.cm.get_cmap(cmap),
                     norm=colornorm_den,
                 )
             else:
                 cb2 = fig.colorbar(im, ax=ax, pad=0)
-            cb2.set_label("log $n$ (cm$^{-3}$)")
+            if not use_col_den:
+                cb2.set_label("log $n$ (cm$^{-3}$)")
+            else:
+                cb2.set_label("log $\Sigma$ (g cm$^{-2}$)")
 
         if plot_cb2:
             plt.draw()

@@ -6,6 +6,20 @@ import argparse
 import warnings
 warnings.filterwarnings("ignore")
 
+# put imports inside main() to make -h run faster
+import yt
+import numpy as np
+import matplotlib.pyplot as plt
+from glob import glob
+from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
+from matplotlib.pyplot import cm
+
+try:
+    import scienceplots
+    plt.style.use(['science', 'no-latex'])
+except:
+    pass
+
 
 def parse_outs(outs_str):
     outs = []
@@ -97,6 +111,8 @@ Quick examples:
                       help="zlim of temperature (in K)")
     args.add_argument("--xHII-zlim", type=float, nargs=2,
                       help="zlim of xHII")
+    args.add_argument("--contour", type=float, help="column density threshold for contour")
+    args.add_argument("--cmap", type=str, help="colormap")
     args.add_argument("--dry-run", action="store_true",
                       help="Toggle dry run: making one figure only and store it in local dierctory")
     args.add_argument("--inzoombox", action="store_true",
@@ -117,6 +133,8 @@ Quick examples:
                       help="LEGACY. Now as the default. Use --show-axes to show axes")
     args.add_argument("--prefix", default="", 
                       help="add prefix to image filename")
+    args.add_argument("--figsize", type=float, default=6.0, help="figure size")
+    args.add_argument("--den-limit-lower", type=float, help="cut off the density below the limit")
     return args.parse_args()
 
 
@@ -126,18 +144,17 @@ def plot_projection(args):
 
     """
 
-    # put imports inside main() to make -h run faster
-    import yt
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from glob import glob
-    from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
-    from matplotlib.pyplot import cm
+    # # put imports inside main() to make -h run faster
+    # import yt
+    # import numpy as np
+    # import matplotlib.pyplot as plt
+    # from glob import glob
+    # from ramtools import ytfast, Ramses, plotutils, ramses, utilities as ut
+    # from matplotlib.pyplot import cm
+    # import scienceplots
 
-    try:
-        plt.style.use(['science', 'no-latex'])
-    except:
-        pass
+    # plt.style.use(['science', 'no-latex'])
+
     if args.darkbg:
         plt.style.use('dark_background')
 
@@ -219,6 +236,11 @@ def plot_projection(args):
         width = ramses.to_boxlen(width, ds)
         if args.draw_box is not None:
             box_width = ramses.to_boxlen(box_width, ds)
+
+        # if args.den_limit_lower is not None, cut off the density below the limit
+        if args.den_limit_lower is not None:
+            ad = ds.all_data()
+            high_density_region = ad.cut_region([f"(obj[('gas', 'density')] > {args.den_limit_lower})"])
 
         def parse_center(_center):
             if _center == 'c':
@@ -322,12 +344,13 @@ def plot_projection(args):
                                 if args.no_ytfast:
                                     p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width,
                                                           weight_field=('gas', 'density'),
-                                                          # max_level=10,
+                                                          max_level=18,
                                                           )
                                 else:
                                     try:
                                         p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width,
                                                                   weight_field=('gas', 'density'),
+                                                                  level=18,
                                                                   force_redo=args.overwrite_cache)
                                     except yt.utilities.exceptions.YTPixelizeError:
                                         p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width,
@@ -339,17 +362,22 @@ def plot_projection(args):
                                     north_vector=north)
                         elif kind == 'colden':
                             if axis in ['x', 'y', 'z']:
-                                if args.no_ytfast:
-                                    p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width)
-                                else:
+                                use_yt_fast = not args.no_ytfast
+                                if use_yt_fast:
                                     try:
-                                        p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width,
-                                                                  force_redo=args.overwrite_cache)
+                                        if args.den_limit_lower is None:
+                                            p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width, force_redo=args.overwrite_cache)
+                                        else:
+                                            p = ytfast.ProjectionPlot(ds, axis, thefield, center=center, width=width, force_redo=args.overwrite_cache, data_source=high_density_region)
                                     except yt.utilities.exceptions.YTPixelizeError:
+                                        use_yt_fast = False # fall back
+                                if not use_yt_fast:
+                                    if args.den_limit_lower is None:
                                         p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width)
+                                    else:
+                                        p = yt.ProjectionPlot(ds, axis, thefield, center=center, width=width, data_source=high_density_region)
                             else:
-                                p = yt.OffAxisProjectionPlot(
-                                    ds, los, thefield, center=center, width=width, north_vector=north)
+                                p = yt.OffAxisProjectionPlot(ds, los, thefield, center=center, width=width, north_vector=north)
                         if field in ['den', 'density']:
                             if kind in ['slc', 'prj']:
                                 plotutils.den_setup(p)
@@ -392,7 +420,7 @@ def plot_projection(args):
                         #         p.annotate_scale(coeff=coeff, unit=unit)
                         #     else:
                         #         p.annotate_scale(max_frac=0.4, min_frac=0.15, )
-                        p.set_figure_size(6)
+                        p.set_figure_size(args.figsize)
                         if args.t0 is not None:
                             if args.time_unit is None:
                                 thefmt = ".1f"
@@ -403,6 +431,11 @@ def plot_projection(args):
                             p.annotate_timestamp(time_format='t = {time:' + thefmt + '} {units}',
                                                  time_offset=timeoffset, corner="upper_left",
                                                  time_unit=args.time_unit)
+
+                        if args.contour is not None:
+                            p.annotate_contour(thefield, ncont=1, clim=(args.contour, args.contour), label=True, take_log=False, 
+                                               plot_args={'colors': 'white', 'linewidths': 1.5})
+
                         if not args.show_axes:
                             # p.axes.get_xaxis().set_visible(False)
                             # p.axes.get_yaxis().set_visible(False)
